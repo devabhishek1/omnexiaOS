@@ -92,7 +92,7 @@ export function Sidebar({ user, business }: SidebarProps) {
                   letterSpacing: '-0.5px',
                 }}
               >
-                N
+                O
               </span>
             </div>
             <div className="sidebar-label overflow-hidden">
