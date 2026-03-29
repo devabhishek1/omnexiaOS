@@ -1,0 +1,19 @@
+{
+  "nav": {
+    "overview": "Vue générale",
+    "communications": "Communications",
+    "finance": "Finance",
+    "planning": "Planning",
+    "team": "Équipe & Rôles",
+    "settings": "Paramètres"
+  },
+  "common": {
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "loading": "Chargement...",
+    "error": "Une erreur est survenue",
+    "retry": "Réessayer"
+  }
+}

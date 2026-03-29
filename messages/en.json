@@ -1,0 +1,19 @@
+{
+  "nav": {
+    "overview": "Overview",
+    "communications": "Communications",
+    "finance": "Finance",
+    "planning": "Planning",
+    "team": "Team & Roles",
+    "settings": "Settings"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "loading": "Loading...",
+    "error": "Something went wrong",
+    "retry": "Try again"
+  }
+}
