@@ -2,6 +2,7 @@
 
 import React from 'react'
 import { OnboardingData } from '../types'
+import { useT } from '../LocaleContext'
 
 const COUNTRIES = [
   { code: 'FR', label: 'France', flag: '🇫🇷' },
@@ -37,6 +38,9 @@ interface Props {
 }
 
 export default function Step3Country({ data, onChange }: Props) {
+  const t = useT()
+  const s = t.s3
+
   function handleCountryChange(code: string) {
     const defaults = COUNTRY_DEFAULTS[code]
     onChange({
@@ -50,11 +54,11 @@ export default function Step3Country({ data, onChange }: Props) {
 
   return (
     <div>
-      <h1 style={headingStyle}>Where is your business based?</h1>
-      <p style={subtitleStyle}>This sets your VAT format, currency, and date display.</p>
+      <h1 style={headingStyle}>{s.heading}</h1>
+      <p style={subtitleStyle}>{s.subtitle}</p>
 
       <label htmlFor="ob-country" style={labelStyle}>
-        Country / Region <span style={{ color: 'var(--red)' }}>*</span>
+        {s.countryLabel} <span style={{ color: 'var(--red)' }}>*</span>
       </label>
       <select
         id="ob-country"
@@ -62,7 +66,7 @@ export default function Step3Country({ data, onChange }: Props) {
         onChange={(e) => handleCountryChange(e.target.value)}
         style={selectStyle}
       >
-        <option value="">Select a country…</option>
+        <option value="">{s.countryPlaceholder}</option>
         {COUNTRIES.map((c) => (
           <option key={c.code} value={c.code}>
             {c.flag} {c.label}
@@ -72,27 +76,13 @@ export default function Step3Country({ data, onChange }: Props) {
 
       {data.countryCode && (
         <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          {/* VAT Rate */}
           <div>
-            <label style={labelStyle}>VAT Rate (%)</label>
-            <input
-              type="number"
-              min={0}
-              max={100}
-              value={data.vatRate ?? ''}
-              onChange={(e) => onChange({ vatRate: parseFloat(e.target.value) || 0 })}
-              style={inputStyle}
-            />
+            <label style={labelStyle}>{s.vatRate}</label>
+            <input type="number" min={0} max={100} value={data.vatRate ?? ''} onChange={(e) => onChange({ vatRate: parseFloat(e.target.value) || 0 })} style={inputStyle} />
           </div>
-
-          {/* Currency */}
           <div>
-            <label style={labelStyle}>Currency</label>
-            <select
-              value={data.currency ?? 'EUR'}
-              onChange={(e) => onChange({ currency: e.target.value })}
-              style={selectStyle}
-            >
+            <label style={labelStyle}>{s.currency}</label>
+            <select value={data.currency ?? 'EUR'} onChange={(e) => onChange({ currency: e.target.value })} style={selectStyle}>
               <option value="EUR">EUR — Euro</option>
               <option value="GBP">GBP — British Pound</option>
               <option value="SEK">SEK — Swedish Krona</option>
@@ -100,91 +90,32 @@ export default function Step3Country({ data, onChange }: Props) {
               <option value="CHF">CHF — Swiss Franc</option>
             </select>
           </div>
-
-          {/* Date Format */}
           <div>
-            <label style={labelStyle}>Date Format</label>
-            <select
-              value={data.dateFormat ?? 'DD/MM/YYYY'}
-              onChange={(e) => onChange({ dateFormat: e.target.value })}
-              style={selectStyle}
-            >
+            <label style={labelStyle}>{s.dateFormat}</label>
+            <select value={data.dateFormat ?? 'DD/MM/YYYY'} onChange={(e) => onChange({ dateFormat: e.target.value })} style={selectStyle}>
               <option value="DD/MM/YYYY">DD/MM/YYYY (European)</option>
               <option value="MM/DD/YYYY">MM/DD/YYYY (US)</option>
             </select>
           </div>
-
-          {/* VAT Number Format */}
           <div>
-            <label style={labelStyle}>VAT Number Format</label>
-            <input
-              type="text"
-              value={data.vatNumberHint ?? ''}
-              onChange={(e) => onChange({ vatNumberHint: e.target.value })}
-              placeholder="e.g. FR + 2 chars + 9 digits"
-              style={inputStyle}
-            />
-            <p style={{ fontSize: '11px', color: 'var(--text-disabled)', marginTop: '4px' }}>
-              Pre-filled with the standard format for your country. You can override this.
-            </p>
+            <label style={labelStyle}>{s.vatFormat}</label>
+            <input type="text" value={data.vatNumberHint ?? ''} onChange={(e) => onChange({ vatNumberHint: e.target.value })} placeholder="e.g. FR + 2 chars + 9 digits" style={inputStyle} />
+            <p style={{ fontSize: '11px', color: 'var(--text-disabled)', marginTop: '4px' }}>{s.vatHint}</p>
           </div>
         </div>
       )}
 
       {!data.countryCode && (
         <p style={{ marginTop: '12px', fontSize: '12px', color: 'var(--text-muted)' }}>
-          Required — this affects VAT calculations across the app.
+          {s.requiredHint}
         </p>
       )}
     </div>
   )
 }
 
-const headingStyle: React.CSSProperties = {
-  fontSize: '22px',
-  fontWeight: 700,
-  color: 'var(--text-primary)',
-  marginBottom: '6px',
-  letterSpacing: '-0.02em',
-}
-
-const subtitleStyle: React.CSSProperties = {
-  fontSize: '14px',
-  color: 'var(--text-muted)',
-  marginBottom: '28px',
-}
-
-const labelStyle: React.CSSProperties = {
-  display: 'block',
-  fontSize: '13px',
-  fontWeight: 500,
-  color: 'var(--text-secondary)',
-  marginBottom: '6px',
-}
-
-const selectStyle: React.CSSProperties = {
-  width: '100%',
-  border: '1px solid var(--border-default)',
-  borderRadius: '8px',
-  padding: '9px 12px',
-  fontSize: '14px',
-  backgroundColor: 'var(--bg-surface)',
-  color: 'var(--text-primary)',
-  outline: 'none',
-  cursor: 'pointer',
-  fontFamily: 'var(--font-dm-sans), sans-serif',
-  transition: 'border-color 0.15s',
-}
-
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  border: '1px solid var(--border-default)',
-  borderRadius: '8px',
-  padding: '9px 12px',
-  fontSize: '14px',
-  backgroundColor: 'var(--bg-surface)',
-  color: 'var(--text-primary)',
-  outline: 'none',
-  fontFamily: 'var(--font-dm-sans), sans-serif',
-  boxSizing: 'border-box',
-}
+const headingStyle: React.CSSProperties = { fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '6px', letterSpacing: '-0.02em' }
+const subtitleStyle: React.CSSProperties = { fontSize: '14px', color: 'var(--text-muted)', marginBottom: '28px' }
+const labelStyle: React.CSSProperties = { display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '6px' }
+const selectStyle: React.CSSProperties = { width: '100%', border: '1px solid var(--border-default)', borderRadius: '8px', padding: '9px 12px', fontSize: '14px', backgroundColor: 'var(--bg-surface)', color: 'var(--text-primary)', outline: 'none', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif', transition: 'border-color 0.15s' }
+const inputStyle: React.CSSProperties = { width: '100%', border: '1px solid var(--border-default)', borderRadius: '8px', padding: '9px 12px', fontSize: '14px', backgroundColor: 'var(--bg-surface)', color: 'var(--text-primary)', outline: 'none', fontFamily: 'var(--font-dm-sans), sans-serif', boxSizing: 'border-box' }

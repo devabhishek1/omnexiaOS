@@ -14,6 +14,9 @@ import Step7Modules from './steps/Step7Modules'
 import Step8Invite from './steps/Step8Invite'
 import Step9Done from './steps/Step9Done'
 import { OnboardingData } from './types'
+import { LocaleProvider } from './LocaleContext'
+import { TRANSLATIONS } from './translations'
+import type { Locale } from './translations'
 export type { OnboardingData }
 
 
@@ -160,10 +163,8 @@ export default function OnboardingPage() {
 
   const progress = ((step - 1) / (TOTAL_STEPS - 1)) * 100
 
-  const STEP_LABELS = [
-    'Language', 'Business', 'Country', 'Industry', 'Team Size',
-    'Gmail', 'Modules', 'Invite', 'Done',
-  ]
+  const locale = (data.locale ?? 'en') as Locale
+  const t = TRANSLATIONS[locale] ?? TRANSLATIONS.en
 
   return (
     <div
@@ -242,29 +243,31 @@ export default function OnboardingPage() {
               letterSpacing: '0.05em',
             }}
           >
-            Step {step} of {TOTAL_STEPS} — {STEP_LABELS[step - 1]}
+            {t.stepOf(step, TOTAL_STEPS)} — {t.stepLabels[step - 1]}
           </p>
 
-          {/* Step content */}
-          <div style={{ minHeight: '280px' }}>
-            {step === 1 && <Step1Welcome data={data} onChange={updateData} />}
-            {step === 2 && <Step2Business data={data} onChange={updateData} />}
-            {step === 3 && <Step3Country data={data} onChange={updateData} />}
-            {step === 4 && <Step4Industry data={data} onChange={updateData} />}
-            {step === 5 && <Step5Size data={data} onChange={updateData} />}
-            {step === 6 && (
-              <Suspense fallback={null}>
-                <Step6Gmail
-                  data={data}
-                  onChange={updateData}
-                  onAdvance={handleAdvanceFromStep6}
-                />
-              </Suspense>
-            )}
-            {step === 7 && <Step7Modules data={data} onChange={updateData} />}
-            {step === 8 && <Step8Invite data={data} onChange={updateData} />}
-            {step === 9 && <Step9Done data={data} saving={saving} />}
-          </div>
+          {/* Step content — wrapped in locale provider so all steps get translated strings */}
+          <LocaleProvider locale={locale}>
+            <div style={{ minHeight: '280px' }}>
+              {step === 1 && <Step1Welcome data={data} onChange={updateData} />}
+              {step === 2 && <Step2Business data={data} onChange={updateData} />}
+              {step === 3 && <Step3Country data={data} onChange={updateData} />}
+              {step === 4 && <Step4Industry data={data} onChange={updateData} />}
+              {step === 5 && <Step5Size data={data} onChange={updateData} />}
+              {step === 6 && (
+                <Suspense fallback={null}>
+                  <Step6Gmail
+                    data={data}
+                    onChange={updateData}
+                    onAdvance={handleAdvanceFromStep6}
+                  />
+                </Suspense>
+              )}
+              {step === 7 && <Step7Modules data={data} onChange={updateData} />}
+              {step === 8 && <Step8Invite data={data} onChange={updateData} />}
+              {step === 9 && <Step9Done data={data} saving={saving} />}
+            </div>
+          </LocaleProvider>
 
           {/* Navigation — hidden on step 6 (handled internally) */}
           {!hideGlobalButtons && (
@@ -300,7 +303,7 @@ export default function OnboardingPage() {
                   }}
                 >
                   <ChevronLeft size={14} />
-                  Back
+                  {t.back}
                 </button>
               ) : (
                 <div />
@@ -323,7 +326,7 @@ export default function OnboardingPage() {
                       fontFamily: 'var(--font-dm-sans), sans-serif',
                     }}
                   >
-                    Skip
+                    {t.skip}
                   </button>
                 )}
 
@@ -342,7 +345,7 @@ export default function OnboardingPage() {
                       fontFamily: 'var(--font-dm-sans), sans-serif',
                     }}
                   >
-                    Skip
+                    {t.skip}
                   </button>
                 )}
 
@@ -368,12 +371,12 @@ export default function OnboardingPage() {
                     }}
                   >
                     {saving
-                      ? 'Saving…'
+                      ? '…'
                       : isLastStep
                       ? 'Go to Dashboard'
                       : isFirstStep
-                      ? 'Get started'
-                      : 'Continue'}
+                      ? t.getStarted
+                      : t.continue}
                   </button>
                 )}
               </div>

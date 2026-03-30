@@ -3,6 +3,7 @@
 import React, { useRef } from 'react'
 import { Upload } from 'lucide-react'
 import { OnboardingData } from '../types'
+import { useT } from '../LocaleContext'
 
 interface Props {
   data: OnboardingData
@@ -10,22 +11,24 @@ interface Props {
 }
 
 export default function Step2Business({ data, onChange }: Props) {
+  const t = useT()
+  const s = t.s2
   const fileRef = useRef<HTMLInputElement>(null)
   const previewUrl = data.logoFile ? URL.createObjectURL(data.logoFile) : null
 
   return (
     <div>
-      <h1 style={headingStyle}>Tell us about your business</h1>
-      <p style={subtitleStyle}>This information will appear throughout your workspace.</p>
+      <h1 style={headingStyle}>{s.heading}</h1>
+      <p style={subtitleStyle}>{s.subtitle}</p>
 
       <div style={{ marginBottom: '24px' }}>
         <label htmlFor="ob-business-name" style={labelStyle}>
-          Business name <span style={{ color: 'var(--red)' }}>*</span>
+          {s.businessName} <span style={{ color: 'var(--red)' }}>*</span>
         </label>
         <input
           id="ob-business-name"
           type="text"
-          placeholder="Acme Corp"
+          placeholder={s.businessNamePlaceholder}
           value={data.businessName}
           onChange={(e) => onChange({ businessName: e.target.value })}
           style={inputStyle}
@@ -42,8 +45,8 @@ export default function Step2Business({ data, onChange }: Props) {
 
       <div>
         <label style={labelStyle}>
-          Logo{' '}
-          <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional)</span>
+          {s.logo}{' '}
+          <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>{s.logoOptional}</span>
         </label>
         <div
           onClick={() => fileRef.current?.click()}
@@ -84,17 +87,17 @@ export default function Step2Business({ data, onChange }: Props) {
                 style={{ height: '60px', objectFit: 'contain', margin: '0 auto 8px' }}
               />
               <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                {data.logoFile?.name} · Click to change
+                {data.logoFile?.name} · {s.clickToChange}
               </p>
             </div>
           ) : (
             <div>
               <Upload size={24} color="var(--text-muted)" style={{ margin: '0 auto 8px' }} />
               <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>
-                Click to upload logo
+                {s.uploadPrompt}
               </p>
               <p style={{ fontSize: '11px', color: 'var(--text-disabled)', margin: '4px 0 0' }}>
-                PNG, JPG, SVG — max 2MB
+                {s.uploadHint}
               </p>
             </div>
           )}
@@ -105,37 +108,19 @@ export default function Step2Business({ data, onChange }: Props) {
 }
 
 const headingStyle: React.CSSProperties = {
-  fontSize: '22px',
-  fontWeight: 700,
-  color: 'var(--text-primary)',
-  marginBottom: '6px',
-  letterSpacing: '-0.02em',
+  fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)',
+  marginBottom: '6px', letterSpacing: '-0.02em',
 }
-
 const subtitleStyle: React.CSSProperties = {
-  fontSize: '14px',
-  color: 'var(--text-muted)',
-  marginBottom: '28px',
+  fontSize: '14px', color: 'var(--text-muted)', marginBottom: '28px',
 }
-
 const labelStyle: React.CSSProperties = {
-  display: 'block',
-  fontSize: '13px',
-  fontWeight: 500,
-  color: 'var(--text-secondary)',
-  marginBottom: '6px',
+  display: 'block', fontSize: '13px', fontWeight: 500,
+  color: 'var(--text-secondary)', marginBottom: '6px',
 }
-
 const inputStyle: React.CSSProperties = {
-  width: '100%',
-  border: '1px solid var(--border-default)',
-  borderRadius: '8px',
-  padding: '9px 12px',
-  fontSize: '14px',
-  backgroundColor: 'var(--bg-surface)',
-  color: 'var(--text-primary)',
-  outline: 'none',
-  boxSizing: 'border-box',
-  fontFamily: 'var(--font-dm-sans), sans-serif',
-  transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+  width: '100%', border: '1px solid var(--border-default)', borderRadius: '8px',
+  padding: '9px 12px', fontSize: '14px', backgroundColor: 'var(--bg-surface)',
+  color: 'var(--text-primary)', outline: 'none', boxSizing: 'border-box',
+  fontFamily: 'var(--font-dm-sans), sans-serif', transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
 }
