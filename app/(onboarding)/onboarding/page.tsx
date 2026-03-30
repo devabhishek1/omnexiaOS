@@ -371,9 +371,9 @@ export default function OnboardingPage() {
                     }}
                   >
                     {saving
-                      ? '…'
+                      ? t.saving
                       : isLastStep
-                      ? 'Go to Dashboard'
+                      ? t.goToDashboard
                       : isFirstStep
                       ? t.getStarted
                       : t.continue}

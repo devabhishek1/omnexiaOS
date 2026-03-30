@@ -32,6 +32,11 @@ const COUNTRY_DEFAULTS: Record<string, { vatRate: number; currency: string; date
   EU: { vatRate: 20, currency: 'EUR', dateFormat: 'DD/MM/YYYY', vatNumberHint: 'Country code + digits' },
 }
 
+// Internal currency values stay as codes regardless of language
+const CURRENCY_VALUES = ['EUR', 'GBP', 'SEK', 'PLN', 'CHF']
+// Internal date format values stay as universal patterns
+const DATE_FORMAT_VALUES = ['DD/MM/YYYY', 'MM/DD/YYYY']
+
 interface Props {
   data: OnboardingData
   onChange: (partial: Partial<OnboardingData>) => void
@@ -83,18 +88,17 @@ export default function Step3Country({ data, onChange }: Props) {
           <div>
             <label style={labelStyle}>{s.currency}</label>
             <select value={data.currency ?? 'EUR'} onChange={(e) => onChange({ currency: e.target.value })} style={selectStyle}>
-              <option value="EUR">EUR — Euro</option>
-              <option value="GBP">GBP — British Pound</option>
-              <option value="SEK">SEK — Swedish Krona</option>
-              <option value="PLN">PLN — Polish Złoty</option>
-              <option value="CHF">CHF — Swiss Franc</option>
+              {CURRENCY_VALUES.map((code, i) => (
+                <option key={code} value={code}>{s.currencyOptions[i]}</option>
+              ))}
             </select>
           </div>
           <div>
             <label style={labelStyle}>{s.dateFormat}</label>
             <select value={data.dateFormat ?? 'DD/MM/YYYY'} onChange={(e) => onChange({ dateFormat: e.target.value })} style={selectStyle}>
-              <option value="DD/MM/YYYY">DD/MM/YYYY (European)</option>
-              <option value="MM/DD/YYYY">MM/DD/YYYY (US)</option>
+              {DATE_FORMAT_VALUES.map((val, i) => (
+                <option key={val} value={val}>{s.dateFormatOptions[i]}</option>
+              ))}
             </select>
           </div>
           <div>

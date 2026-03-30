@@ -29,13 +29,22 @@ export default function Step9Done({ data, saving }: Props) {
     other: `🔧 ${tIndustries[4].label}`,
   }
 
+  // Map module IDs to translated labels
+  const MODULE_ID_ORDER = ['communications', 'finance', 'planning', 'team']
+  const translatedModules = data.activeModules
+    .map((id) => {
+      const idx = MODULE_ID_ORDER.indexOf(id)
+      return idx >= 0 ? t.s7.modules[idx as 0 | 1 | 2 | 3].label : id
+    })
+    .join(', ')
+
   const items = [
     { label: s.rowBusiness, value: data.businessName || '—' },
     { label: s.rowCountry, value: data.countryCode ? COUNTRY_NAMES[data.countryCode] : '—' },
     { label: s.rowIndustry, value: data.industry ? INDUSTRY_LABELS[data.industry] : s.notSpecified },
     { label: s.rowSize, value: data.companySize ? `${data.companySize} ${s.employeesSuffix}` : s.notSpecified },
     { label: s.rowGmail, value: data.gmailConnected ? s.gmailConnected : s.gmailSkipped },
-    { label: s.rowModules, value: data.activeModules.join(', ') },
+    { label: s.rowModules, value: translatedModules },
     { label: s.rowInvites, value: data.invitedEmails.length > 0 ? s.inviteCount(data.invitedEmails.length) : s.inviteNone },
   ]
 
