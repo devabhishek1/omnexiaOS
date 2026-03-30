@@ -2,7 +2,6 @@
 
 import React from 'react'
 import { Search, PenSquare, Zap } from 'lucide-react'
-import type { ConversationChannel, ConversationStatus } from './mock-data'
 
 const CHANNELS: { id: string; label: string; soon?: boolean }[] = [
   { id: 'all', label: 'All' },
@@ -43,95 +42,115 @@ export function FilterBar({
       style={{
         height: '56px',
         minHeight: '56px',
-        background: 'var(--bg-surface)',
-        borderBottom: '1px solid var(--border-default)',
+        background: '#FFFFFF',
+        borderBottom: '1px solid #E8E8E2',
         display: 'flex',
         alignItems: 'center',
         padding: '0 20px',
-        gap: '6px',
+        gap: '4px',
         flexShrink: 0,
         overflowX: 'auto',
       }}
     >
-      {/* Channel tabs */}
-      {CHANNELS.map((ch) => (
-        <button
-          key={ch.id}
-          disabled={ch.soon}
-          onClick={() => !ch.soon && setActiveChannel(ch.id)}
-          style={{
-            padding: '5px 11px',
-            borderRadius: '6px',
-            fontSize: '13px',
-            fontWeight: activeChannel === ch.id ? 600 : 400,
-            color: ch.soon
-              ? 'var(--text-disabled)'
-              : activeChannel === ch.id
-              ? 'var(--accent)'
-              : 'var(--text-muted)',
-            background: activeChannel === ch.id ? 'var(--accent-light)' : 'transparent',
-            border: 'none',
-            cursor: ch.soon ? 'default' : 'pointer',
-            whiteSpace: 'nowrap',
-            transition: 'all 0.1s',
-            flexShrink: 0,
-            fontFamily: 'var(--font-dm-sans), sans-serif',
-          }}
-        >
-          {ch.label}
-          {ch.soon && <span style={{ fontSize: '10px', marginLeft: '3px' }}>(soon)</span>}
-        </button>
-      ))}
+      {/* ── Channel tabs ── */}
+      {CHANNELS.map((ch) => {
+        const isActive = activeChannel === ch.id
+        return (
+          <button
+            key={ch.id}
+            disabled={ch.soon}
+            onClick={() => !ch.soon && setActiveChannel(ch.id)}
+            style={{
+              padding: '5px 12px',
+              borderRadius: '6px',
+              fontSize: '13px',
+              fontWeight: isActive ? 700 : 500,
+              color: ch.soon ? '#BBBBBB' : isActive ? '#2563EB' : '#374151',
+              background: isActive ? '#EEF3FE' : 'transparent',
+              border: isActive ? '1px solid #BFDBFE' : '1px solid transparent',
+              cursor: ch.soon ? 'default' : 'pointer',
+              whiteSpace: 'nowrap',
+              transition: 'all 0.12s',
+              flexShrink: 0,
+              fontFamily: 'var(--font-dm-sans), sans-serif',
+            }}
+            onMouseEnter={(e) => {
+              if (!ch.soon && !isActive) e.currentTarget.style.background = '#F3F4F6'
+            }}
+            onMouseLeave={(e) => {
+              if (!ch.soon && !isActive) e.currentTarget.style.background = 'transparent'
+            }}
+          >
+            {ch.label}
+            {ch.soon && <span style={{ fontSize: '10px', marginLeft: '3px', color: '#BBBBBB' }}>(soon)</span>}
+          </button>
+        )
+      })}
 
       {/* Divider */}
-      <div style={{ width: '1px', height: '20px', background: 'var(--border-default)', margin: '0 4px', flexShrink: 0 }} />
+      <div style={{ width: '1px', height: '20px', background: '#E8E8E2', margin: '0 6px', flexShrink: 0 }} />
 
-      {/* Status pills */}
-      {STATUSES.map((s) => (
-        <button
-          key={s.id}
-          onClick={() => setActiveStatus(s.id)}
-          style={{
-            padding: '4px 10px',
-            borderRadius: '20px',
-            fontSize: '12px',
-            fontWeight: activeStatus === s.id ? 600 : 400,
-            color: activeStatus === s.id ? 'var(--accent)' : 'var(--text-muted)',
-            background: activeStatus === s.id ? 'var(--accent-light)' : 'transparent',
-            border: activeStatus === s.id ? '1px solid var(--accent-light)' : '1px solid transparent',
-            cursor: 'pointer',
-            whiteSpace: 'nowrap',
-            transition: 'all 0.1s',
-            flexShrink: 0,
-            fontFamily: 'var(--font-dm-sans), sans-serif',
-          }}
-        >
-          {s.label}
-        </button>
-      ))}
+      {/* ── Status pills ── */}
+      {STATUSES.map((s) => {
+        const isActive = activeStatus === s.id
+        return (
+          <button
+            key={s.id}
+            onClick={() => setActiveStatus(s.id)}
+            style={{
+              padding: '4px 11px',
+              borderRadius: '20px',
+              fontSize: '12px',
+              fontWeight: isActive ? 700 : 500,
+              color: isActive ? '#2563EB' : '#374151',
+              background: isActive ? '#EEF3FE' : '#F3F4F6',
+              border: isActive ? '1px solid #BFDBFE' : '1px solid transparent',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              transition: 'all 0.12s',
+              flexShrink: 0,
+              fontFamily: 'var(--font-dm-sans), sans-serif',
+            }}
+            onMouseEnter={(e) => {
+              if (!isActive) e.currentTarget.style.background = '#E5E7EB'
+            }}
+            onMouseLeave={(e) => {
+              if (!isActive) e.currentTarget.style.background = '#F3F4F6'
+            }}
+          >
+            {s.label}
+          </button>
+        )
+      })}
 
       {/* Divider */}
-      <div style={{ width: '1px', height: '20px', background: 'var(--border-default)', margin: '0 4px', flexShrink: 0 }} />
+      <div style={{ width: '1px', height: '20px', background: '#E8E8E2', margin: '0 6px', flexShrink: 0 }} />
 
-      {/* Priority toggle */}
+      {/* ── Priority toggle ── */}
       <button
         onClick={() => setPriorityOnly(!priorityOnly)}
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: '5px',
-          padding: '4px 10px',
+          padding: '4px 11px',
           borderRadius: '20px',
           fontSize: '12px',
-          fontWeight: priorityOnly ? 600 : 400,
-          color: priorityOnly ? '#D97706' : 'var(--text-muted)',
-          background: priorityOnly ? '#FFFBEB' : 'transparent',
+          fontWeight: priorityOnly ? 700 : 500,
+          color: priorityOnly ? '#B45309' : '#374151',
+          background: priorityOnly ? '#FEF3C7' : '#F3F4F6',
           border: priorityOnly ? '1px solid #FDE68A' : '1px solid transparent',
           cursor: 'pointer',
           whiteSpace: 'nowrap',
-          transition: 'all 0.1s',
+          transition: 'all 0.12s',
           flexShrink: 0,
           fontFamily: 'var(--font-dm-sans), sans-serif',
+        }}
+        onMouseEnter={(e) => {
+          if (!priorityOnly) e.currentTarget.style.background = '#E5E7EB'
+        }}
+        onMouseLeave={(e) => {
+          if (!priorityOnly) e.currentTarget.style.background = '#F3F4F6'
         }}
       >
         <Zap size={12} />
@@ -141,7 +160,7 @@ export function FilterBar({
       {/* Spacer */}
       <div style={{ flex: 1 }} />
 
-      {/* Search */}
+      {/* ── Search ── */}
       <div style={{ position: 'relative', flexShrink: 0 }}>
         <Search
           size={13}
@@ -150,11 +169,12 @@ export function FilterBar({
             left: '10px',
             top: '50%',
             transform: 'translateY(-50%)',
-            color: 'var(--text-muted)',
+            color: '#9CA3AF',
             pointerEvents: 'none',
           }}
         />
         <input
+          id="comms-search"
           type="text"
           placeholder="Search messages..."
           value={searchQuery}
@@ -162,21 +182,27 @@ export function FilterBar({
           style={{
             width: '220px',
             padding: '7px 12px 7px 30px',
-            border: '1px solid var(--border-default)',
+            border: '1px solid #E8E8E2',
             borderRadius: '8px',
             fontSize: '13px',
-            background: 'var(--bg-base)',
-            color: 'var(--text-primary)',
+            background: '#F9F9F6',
+            color: '#1A1A1A',
             outline: 'none',
             fontFamily: 'var(--font-dm-sans), sans-serif',
-            transition: 'border-color 0.15s',
+            transition: 'border-color 0.15s, box-shadow 0.15s',
           }}
-          onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--accent-light)' }}
-          onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border-default)'; e.currentTarget.style.boxShadow = 'none' }}
+          onFocus={(e) => {
+            e.currentTarget.style.borderColor = '#2563EB'
+            e.currentTarget.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.12)'
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.borderColor = '#E8E8E2'
+            e.currentTarget.style.boxShadow = 'none'
+          }}
         />
       </div>
 
-      {/* Compose */}
+      {/* ── Compose ── */}
       <button
         id="compose-btn"
         onClick={onCompose}
@@ -184,8 +210,8 @@ export function FilterBar({
           display: 'flex',
           alignItems: 'center',
           gap: '6px',
-          padding: '7px 14px',
-          background: 'var(--accent)',
+          padding: '7px 16px',
+          background: '#2563EB',
           color: '#FFFFFF',
           border: 'none',
           borderRadius: '8px',
@@ -196,9 +222,10 @@ export function FilterBar({
           flexShrink: 0,
           transition: 'background 0.15s',
           fontFamily: 'var(--font-dm-sans), sans-serif',
+          letterSpacing: '0.01em',
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-hover)' }}
-        onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--accent)' }}
+        onMouseEnter={(e) => { e.currentTarget.style.background = '#1D4ED8' }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = '#2563EB' }}
       >
         <PenSquare size={13} />
         Compose

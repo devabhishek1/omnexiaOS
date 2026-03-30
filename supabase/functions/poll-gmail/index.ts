@@ -1,3 +1,4 @@
+// @ts-nocheck
 // supabase/functions/poll-gmail/index.ts
 // Runs every 5 minutes via pg_cron. Fetches new Gmail messages and upserts them
 // into the conversations + messages tables.

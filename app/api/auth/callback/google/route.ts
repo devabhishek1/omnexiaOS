@@ -44,8 +44,9 @@ export async function GET(request: Request) {
         const providerToken = session.provider_token
         const providerRefreshToken = session.provider_refresh_token
 
+        let tokenSaved = false
+
         if (providerToken) {
-          // Calculate expiry — Google access tokens last 1 hour
           const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString()
 
           // Get business_id so the edge function can join tokens → business
@@ -55,34 +56,37 @@ export async function GET(request: Request) {
             .eq('id', user.id)
             .single()
 
-          const { error: tokenError } = await admin
-            .from('gmail_tokens')
-            .upsert(
-              {
-                user_id: user.id,
-                business_id: userRow?.business_id ?? null,
-                email: user.email!,
-                access_token: encrypt(providerToken),
-                refresh_token: encrypt(providerRefreshToken ?? ''),
-                expires_at: expiresAt,
-              },
-              { onConflict: 'user_id' }
-            )
+          // Try DELETE + INSERT to avoid needing a unique constraint during setup
+          await admin.from('gmail_tokens').delete().eq('user_id', user.id)
+
+          const { error: tokenError } = await admin.from('gmail_tokens').insert({
+            user_id: user.id,
+            business_id: userRow?.business_id ?? null,
+            email: user.email!,
+            access_token: encrypt(providerToken),
+            refresh_token: encrypt(providerRefreshToken ?? ''),
+            expires_at: expiresAt,
+          })
 
           if (tokenError) {
-            console.error('[callback] gmail_tokens upsert error:', tokenError.message)
+            console.error('[callback] gmail_tokens insert error:', tokenError.message)
           } else {
             console.log('[callback] Gmail tokens saved for', user.email)
+            tokenSaved = true
           }
         } else {
-          console.warn('[callback] No provider_token returned — offline access may not have been granted')
+          console.warn('[callback] No provider_token returned from Supabase OAuth')
         }
 
-        // Set flags in the redirect URL so the client can read them via URL params
-        // (localStorage is cross-tab unreliable after a full redirect)
+        // Only show success if we actually stored the token
         const redirectUrl = new URL(`${origin}/onboarding`)
-        redirectUrl.searchParams.set('gmail_connected', 'true')
-        redirectUrl.searchParams.set('gmail_email', user.email ?? '')
+        if (tokenSaved) {
+          redirectUrl.searchParams.set('gmail_connected', 'true')
+          redirectUrl.searchParams.set('gmail_email', user.email ?? '')
+        } else {
+          redirectUrl.searchParams.set('gmail_connected', 'false')
+          redirectUrl.searchParams.set('gmail_error', providerToken ? 'save_failed' : 'no_token')
+        }
         return NextResponse.redirect(redirectUrl.toString())
       }
 

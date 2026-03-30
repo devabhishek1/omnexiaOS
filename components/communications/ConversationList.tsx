@@ -240,35 +240,44 @@ export function ConversationList({ conversations, allEmpty, selectedId, onSelect
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: '8px',
+          gap: '10px',
           background: 'var(--bg-surface)',
-          padding: '24px',
+          padding: '32px 24px',
           textAlign: 'center',
         }}
       >
-        <Inbox size={32} color="var(--text-disabled)" />
-        <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+        <div style={{ width: '56px', height: '56px', borderRadius: '14px', background: '#EEF3FE', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '4px' }}>
+          <Inbox size={28} color="#2563EB" />
+        </div>
+        <p style={{ fontSize: '15px', fontWeight: 700, color: '#1A1A1A', margin: 0 }}>
           No messages yet
         </p>
-        <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>
-          Connect Gmail to start receiving messages
+        <p style={{ fontSize: '13px', color: '#6B6B6B', margin: 0, lineHeight: 1.5 }}>
+          Connect Gmail to start receiving<br />messages in your inbox
         </p>
-        <button
+        <a
+          href="/settings"
           style={{
-            marginTop: '8px',
-            padding: '7px 16px',
-            background: 'var(--accent)',
-            color: '#FFF',
+            marginTop: '6px',
+            display: 'inline-block',
+            padding: '9px 20px',
+            background: '#2563EB',
+            color: '#FFFFFF',
             border: 'none',
             borderRadius: '8px',
             fontSize: '13px',
             fontWeight: 600,
             cursor: 'pointer',
             fontFamily: 'var(--font-dm-sans), sans-serif',
+            textDecoration: 'none',
+            letterSpacing: '0.01em',
           }}
         >
           Connect Gmail
-        </button>
+        </a>
+        <p style={{ fontSize: '11px', color: '#9A9A9A', margin: 0 }}>
+          You can also reconnect from Settings
+        </p>
       </div>
     )
   }
