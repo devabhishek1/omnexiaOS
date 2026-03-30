@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { ChevronLeft } from 'lucide-react'
@@ -15,6 +15,7 @@ import Step8Invite from './steps/Step8Invite'
 import Step9Done from './steps/Step9Done'
 import { OnboardingData } from './types'
 export type { OnboardingData }
+
 
 const TOTAL_STEPS = 9
 
@@ -252,11 +253,13 @@ export default function OnboardingPage() {
             {step === 4 && <Step4Industry data={data} onChange={updateData} />}
             {step === 5 && <Step5Size data={data} onChange={updateData} />}
             {step === 6 && (
-              <Step6Gmail
-                data={data}
-                onChange={updateData}
-                onAdvance={handleAdvanceFromStep6}
-              />
+              <Suspense fallback={null}>
+                <Step6Gmail
+                  data={data}
+                  onChange={updateData}
+                  onAdvance={handleAdvanceFromStep6}
+                />
+              </Suspense>
             )}
             {step === 7 && <Step7Modules data={data} onChange={updateData} />}
             {step === 8 && <Step8Invite data={data} onChange={updateData} />}

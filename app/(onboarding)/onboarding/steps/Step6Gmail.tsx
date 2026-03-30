@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { CheckCircle, Mail } from 'lucide-react'
 import { OnboardingData } from '../types'
 
@@ -18,16 +19,20 @@ interface Props {
 
 export default function Step6Gmail({ data, onChange, onAdvance }: Props) {
   const [connecting, setConnecting] = useState(false)
+  const searchParams = useSearchParams()
+  const router = useRouter()
 
-  // Detect successful OAuth return via localStorage flag set by the callback route
+  // Detect successful OAuth return via URL search params set by the callback route.
+  // The callback redirects to /onboarding?gmail_connected=true&gmail_email=x@gmail.com
   useEffect(() => {
-    const flag = localStorage.getItem('gmail_connected')
-    const email = localStorage.getItem('gmail_email')
-    if (flag === 'true') {
-      localStorage.removeItem('gmail_connected')
-      onChange({ gmailConnected: true, gmailEmail: email ?? undefined })
+    const gmailConnected = searchParams.get('gmail_connected')
+    const gmailEmail = searchParams.get('gmail_email')
+    if (gmailConnected === 'true') {
+      // Clean the URL params so refresh doesn't re-trigger this
+      router.replace('/onboarding', { scroll: false })
+      onChange({ gmailConnected: true, gmailEmail: gmailEmail ?? undefined })
     }
-  }, [onChange])
+  }, [searchParams, onChange, router])
 
   // Auto-advance 1.5 s after connected state is set
   useEffect(() => {
