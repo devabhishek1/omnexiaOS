@@ -1,7 +1,8 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import { ChevronLeft } from 'lucide-react'
 import Step1Welcome from './steps/Step1Welcome'
 import Step2Business from './steps/Step2Business'
@@ -21,13 +22,19 @@ const TOTAL_STEPS = 9
 const REQUIRED_STEPS: Partial<Record<number, (d: OnboardingData) => boolean>> = {
   2: (d) => d.businessName.trim().length > 0,
   3: (d) => d.countryCode.length > 0,
+  4: (d) => !!d.industry,
+  5: (d) => !!d.companySize,
 }
 
 // Steps that show a "Skip" button instead of "Next" (no back-block)
-const SKIPPABLE_STEPS = new Set([4, 5, 6, 7, 8])
+// Step 6 and 8 have their own internal skip logic — excluded from the global skip
+const SKIPPABLE_STEPS = new Set([4, 5, 7])
 
 export default function OnboardingPage() {
   const router = useRouter()
+  // supabase client — static browser client, instantiated once inside the component
+  const supabase = createClient()
+
   const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
   const [data, setData] = useState<OnboardingData>({
@@ -39,14 +46,40 @@ export default function OnboardingPage() {
     gmailConnected: false,
   })
 
+  // Restore from localStorage on mount (after Gmail OAuth redirect)
+  useEffect(() => {
+    const savedStep = localStorage.getItem('onboarding_step')
+    const savedData = localStorage.getItem('onboarding_data')
+    if (savedStep) setStep(parseInt(savedStep, 10))
+    if (savedData) {
+      try { setData(JSON.parse(savedData)) } catch { /* ignore corrupt data */ }
+    }
+  }, [])
+
+  // Persist step to localStorage on every change
+  useEffect(() => {
+    localStorage.setItem('onboarding_step', step.toString())
+  }, [step])
+
   function updateData(partial: Partial<OnboardingData>) {
-    setData((prev) => ({ ...prev, ...partial }))
+    setData((prev) => {
+      const next = { ...prev, ...partial }
+      localStorage.setItem('onboarding_data', JSON.stringify(next))
+      return next
+    })
   }
 
   const canProgress = REQUIRED_STEPS[step] ? REQUIRED_STEPS[step]!(data) : true
   const isSkippable = SKIPPABLE_STEPS.has(step)
   const isLastStep = step === TOTAL_STEPS
   const isFirstStep = step === 1
+
+  // Step 8 specific: show Continue when emails added, Skip when empty
+  const isStep8 = step === 8
+  const step8HasEmails = isStep8 && data.invitedEmails.length > 0
+
+  // Step 6 and 9 manage their own navigation internals — hide global footer
+  const hideGlobalButtons = step === 6
 
   function handleNext() {
     if (isLastStep) {
@@ -60,60 +93,75 @@ export default function OnboardingPage() {
     if (!isFirstStep) setStep((s) => s - 1)
   }
 
+  // Used by Step6Gmail onAdvance prop
+  const handleAdvanceFromStep6 = useCallback(() => {
+    setStep(7)
+  }, [])
+
   async function handleFinish() {
     setSaving(true)
     try {
-      // Supabase writes only happen when properly configured (real creds in .env.local)
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      if (supabaseUrl && supabaseUrl !== 'placeholder') {
-        const { createClient } = await import('@/lib/supabase/client')
-        const supabase = createClient()
-        const { data: { user } } = await supabase.auth.getUser()
+      // 1. Check auth — using the static browser client
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      if (authError) {
+        console.error('Onboarding auth error:', authError.message, authError)
+        router.push('/overview')
+        return
+      }
+      if (!user) {
+        console.error('Onboarding: no authenticated user — redirecting to login')
+        router.push('/login')
+        return
+      }
 
-        if (user) {
-          // 1. Create business row
-          const { data: business, error: bizError } = await supabase
-            .from('businesses')
-            .insert({
-              name: data.businessName,
-              country: data.countryCode,
-              industry: data.industry ?? null,
-              locale: data.locale,
-              size: data.companySize ?? null,
-              owner_id: user.id,
-            })
-            .select('id')
-            .single()
+      // 2. Insert business row
+      const { data: business, error: bizError } = await supabase
+        .from('businesses')
+        .insert({
+          name: data.businessName,
+          country_code: data.countryCode,
+          industry: data.industry ?? null,
+          locale: data.locale,
+          size_range: data.companySize ?? null,
+        })
+        .select('id')
+        .single()
 
-          if (bizError) throw bizError
+      if (bizError) {
+        console.error('Onboarding business insert error:', bizError.message, bizError)
+        throw bizError
+      }
 
-          // 2. Update users row with business_id
-          await supabase
-            .from('users')
-            .update({ business_id: business.id })
-            .eq('id', user.id)
+      // 3. Update users row with business_id + mark onboarding complete
+      const { error: userError } = await supabase
+        .from('users')
+        .update({ business_id: business.id, onboarding_complete: true })
+        .eq('id', user.id)
 
-          // 3. Upload logo if provided
-          if (data.logoFile && business?.id) {
-            const ext = data.logoFile.name.split('.').pop()
-            await supabase.storage
-              .from('business-logos')
-              .upload(`${business.id}/logo.${ext}`, data.logoFile, { upsert: true })
-          }
+      if (userError) {
+        console.error('Onboarding user update error:', userError.message, userError)
+        throw userError
+      }
 
-          // 4. Mark onboarding complete
-          await supabase.auth.updateUser({
-            data: { onboarding_complete: true, business_id: business.id },
-          })
+      // 4. Upload logo if provided
+      if (data.logoFile && business?.id) {
+        const ext = data.logoFile.name.split('.').pop()
+        const { error: uploadError } = await supabase.storage
+          .from('business-logos')
+          .upload(`${business.id}/logo.${ext}`, data.logoFile, { upsert: true })
+        if (uploadError) {
+          console.warn('Logo upload failed (non-fatal):', uploadError.message)
         }
       }
 
-      // Brief pause for UX, then redirect
+      // Clear persisted onboarding state
+      localStorage.removeItem('onboarding_step')
+      localStorage.removeItem('onboarding_data')
+
       await new Promise((r) => setTimeout(r, 600))
       router.push('/overview')
     } catch (err) {
-      console.error('Onboarding save error:', err)
-      // Redirect anyway in dev / on error
+      console.error('Onboarding save error:', JSON.stringify(err), err)
       router.push('/overview')
     } finally {
       setSaving(false)
@@ -160,7 +208,7 @@ export default function OnboardingPage() {
               fontFamily: 'var(--font-dm-sans), sans-serif',
             }}
           >
-            N
+            O
           </span>
         </div>
       </div>
@@ -214,101 +262,131 @@ export default function OnboardingPage() {
             {step === 3 && <Step3Country data={data} onChange={updateData} />}
             {step === 4 && <Step4Industry data={data} onChange={updateData} />}
             {step === 5 && <Step5Size data={data} onChange={updateData} />}
-            {step === 6 && <Step6Gmail data={data} onChange={updateData} />}
+            {step === 6 && (
+              <Step6Gmail
+                data={data}
+                onChange={updateData}
+                onAdvance={handleAdvanceFromStep6}
+              />
+            )}
             {step === 7 && <Step7Modules data={data} onChange={updateData} />}
             {step === 8 && <Step8Invite data={data} onChange={updateData} />}
             {step === 9 && <Step9Done data={data} saving={saving} />}
           </div>
 
-          {/* Navigation */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginTop: '32px',
-              paddingTop: '20px',
-              borderTop: '1px solid var(--border-default)',
-            }}
-          >
-            {/* Back */}
-            {!isFirstStep ? (
-              <button
-                type="button"
-                onClick={handleBack}
-                disabled={saving}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '8px 14px',
-                  backgroundColor: 'transparent',
-                  border: '1px solid var(--border-default)',
-                  borderRadius: '8px',
-                  fontSize: '13px',
-                  fontWeight: 500,
-                  color: 'var(--text-secondary)',
-                  cursor: 'pointer',
-                  fontFamily: 'var(--font-dm-sans), sans-serif',
-                }}
-              >
-                <ChevronLeft size={14} />
-                Back
-              </button>
-            ) : (
-              <div />
-            )}
-
-            {/* Right side buttons */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              {/* Skip (for skippable steps only) */}
-              {isSkippable && !isLastStep && (
+          {/* Navigation — hidden on step 6 (handled internally) */}
+          {!hideGlobalButtons && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginTop: '32px',
+                paddingTop: '20px',
+                borderTop: '1px solid var(--border-default)',
+              }}
+            >
+              {/* Back */}
+              {!isFirstStep ? (
                 <button
                   type="button"
-                  onClick={handleNext}
+                  onClick={handleBack}
+                  disabled={saving}
                   style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
                     padding: '8px 14px',
                     backgroundColor: 'transparent',
-                    border: 'none',
+                    border: '1px solid var(--border-default)',
+                    borderRadius: '8px',
                     fontSize: '13px',
-                    color: 'var(--text-muted)',
+                    fontWeight: 500,
+                    color: 'var(--text-secondary)',
                     cursor: 'pointer',
                     fontFamily: 'var(--font-dm-sans), sans-serif',
                   }}
                 >
-                  Skip
+                  <ChevronLeft size={14} />
+                  Back
                 </button>
+              ) : (
+                <div />
               )}
 
-              {/* Next / Get Started / Go to Dashboard */}
-              <button
-                id={`ob-step-${step}-next`}
-                type="button"
-                onClick={handleNext}
-                disabled={!canProgress || saving}
-                style={{
-                  padding: '9px 20px',
-                  backgroundColor: canProgress && !saving ? 'var(--omnexia-accent)' : 'var(--border-strong)',
-                  color: canProgress && !saving ? '#FFFFFF' : 'var(--text-muted)',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  cursor: canProgress && !saving ? 'pointer' : 'not-allowed',
-                  transition: 'background-color 0.15s ease',
-                  fontFamily: 'var(--font-dm-sans), sans-serif',
-                }}
-              >
-                {saving
-                  ? 'Saving…'
-                  : isLastStep
-                  ? 'Go to Dashboard'
-                  : isFirstStep
-                  ? 'Get started'
-                  : 'Continue'}
-              </button>
+              {/* Right side buttons */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                {/* Step 8: Skip when no emails, hidden when emails present */}
+                {isStep8 && !step8HasEmails && (
+                  <button
+                    type="button"
+                    onClick={handleNext}
+                    style={{
+                      padding: '8px 14px',
+                      backgroundColor: 'transparent',
+                      border: 'none',
+                      fontSize: '13px',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      fontFamily: 'var(--font-dm-sans), sans-serif',
+                    }}
+                  >
+                    Skip
+                  </button>
+                )}
+
+                {/* Standard skippable steps (4, 5, 7) */}
+                {isSkippable && !isLastStep && (
+                  <button
+                    type="button"
+                    onClick={handleNext}
+                    style={{
+                      padding: '8px 14px',
+                      backgroundColor: 'transparent',
+                      border: 'none',
+                      fontSize: '13px',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      fontFamily: 'var(--font-dm-sans), sans-serif',
+                    }}
+                  >
+                    Skip
+                  </button>
+                )}
+
+                {/* Next / Get Started / Continue / Go to Dashboard
+                    On step 8: only show when emails are added OR it's not step 8 */}
+                {(!isStep8 || step8HasEmails) && (
+                  <button
+                    id={`ob-step-${step}-next`}
+                    type="button"
+                    onClick={handleNext}
+                    disabled={!canProgress || saving}
+                    style={{
+                      padding: '9px 20px',
+                      backgroundColor: canProgress && !saving ? 'var(--omnexia-accent)' : 'var(--border-strong)',
+                      color: canProgress && !saving ? '#FFFFFF' : 'var(--text-muted)',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      cursor: canProgress && !saving ? 'pointer' : 'not-allowed',
+                      transition: 'background-color 0.15s ease',
+                      fontFamily: 'var(--font-dm-sans), sans-serif',
+                    }}
+                  >
+                    {saving
+                      ? 'Saving…'
+                      : isLastStep
+                      ? 'Go to Dashboard'
+                      : isFirstStep
+                      ? 'Get started'
+                      : 'Continue'}
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

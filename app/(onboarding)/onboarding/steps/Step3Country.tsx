@@ -17,18 +17,41 @@ const COUNTRIES = [
   { code: 'EU', label: 'Other EU', flag: '🌍' },
 ]
 
+const COUNTRY_DEFAULTS: Record<string, { vatRate: number; currency: string; dateFormat: string; vatNumberHint: string }> = {
+  FR: { vatRate: 20, currency: 'EUR', dateFormat: 'DD/MM/YYYY', vatNumberHint: 'FR + 2 chars + 9 digits' },
+  DE: { vatRate: 19, currency: 'EUR', dateFormat: 'DD/MM/YYYY', vatNumberHint: 'DE + 9 digits' },
+  ES: { vatRate: 21, currency: 'EUR', dateFormat: 'DD/MM/YYYY', vatNumberHint: 'ES + letter + 7 digits + letter' },
+  IT: { vatRate: 22, currency: 'EUR', dateFormat: 'DD/MM/YYYY', vatNumberHint: 'IT + 11 digits' },
+  NL: { vatRate: 21, currency: 'EUR', dateFormat: 'DD/MM/YYYY', vatNumberHint: 'NL + 9 digits + B + 2 digits' },
+  BE: { vatRate: 21, currency: 'EUR', dateFormat: 'DD/MM/YYYY', vatNumberHint: 'BE + 10 digits' },
+  PT: { vatRate: 23, currency: 'EUR', dateFormat: 'DD/MM/YYYY', vatNumberHint: 'PT + 9 digits' },
+  AT: { vatRate: 20, currency: 'EUR', dateFormat: 'DD/MM/YYYY', vatNumberHint: 'ATU + 8 digits' },
+  SE: { vatRate: 25, currency: 'EUR', dateFormat: 'DD/MM/YYYY', vatNumberHint: 'SE + 12 digits' },
+  PL: { vatRate: 23, currency: 'EUR', dateFormat: 'DD/MM/YYYY', vatNumberHint: 'PL + 10 digits' },
+  EU: { vatRate: 20, currency: 'EUR', dateFormat: 'DD/MM/YYYY', vatNumberHint: 'Country code + digits' },
+}
+
 interface Props {
   data: OnboardingData
   onChange: (partial: Partial<OnboardingData>) => void
 }
 
 export default function Step3Country({ data, onChange }: Props) {
-  const selected = COUNTRIES.find((c) => c.code === data.countryCode)
+  function handleCountryChange(code: string) {
+    const defaults = COUNTRY_DEFAULTS[code]
+    onChange({
+      countryCode: code,
+      vatRate: defaults?.vatRate,
+      currency: defaults?.currency ?? 'EUR',
+      dateFormat: defaults?.dateFormat ?? 'DD/MM/YYYY',
+      vatNumberHint: defaults?.vatNumberHint ?? '',
+    })
+  }
 
   return (
     <div>
       <h1 style={headingStyle}>Where is your business based?</h1>
-      <p style={subtitleStyle}>This sets your language, VAT format, and currency.</p>
+      <p style={subtitleStyle}>This sets your VAT format, currency, and date display.</p>
 
       <label htmlFor="ob-country" style={labelStyle}>
         Country / Region <span style={{ color: 'var(--red)' }}>*</span>
@@ -36,11 +59,8 @@ export default function Step3Country({ data, onChange }: Props) {
       <select
         id="ob-country"
         value={data.countryCode}
-        onChange={(e) => onChange({ countryCode: e.target.value })}
-        style={{
-          ...selectStyle,
-          borderColor: !data.countryCode ? 'var(--border-default)' : 'var(--border-default)',
-        }}
+        onChange={(e) => handleCountryChange(e.target.value)}
+        style={selectStyle}
       >
         <option value="">Select a country…</option>
         {COUNTRIES.map((c) => (
@@ -50,25 +70,64 @@ export default function Step3Country({ data, onChange }: Props) {
         ))}
       </select>
 
-      {selected && (
-        <div
-          style={{
-            marginTop: '16px',
-            backgroundColor: 'var(--green-light)',
-            border: '1px solid var(--green)',
-            borderRadius: '8px',
-            padding: '12px 16px',
-            fontSize: '13px',
-            color: 'var(--green)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '4px',
-          }}
-        >
-          <span style={{ fontWeight: 600 }}>{selected.flag} {selected.label} selected</span>
-          <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>
-            Currency: EUR · VAT format: EU compliant · Date: DD/MM/YYYY
-          </span>
+      {data.countryCode && (
+        <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          {/* VAT Rate */}
+          <div>
+            <label style={labelStyle}>VAT Rate (%)</label>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={data.vatRate ?? ''}
+              onChange={(e) => onChange({ vatRate: parseFloat(e.target.value) || 0 })}
+              style={inputStyle}
+            />
+          </div>
+
+          {/* Currency */}
+          <div>
+            <label style={labelStyle}>Currency</label>
+            <select
+              value={data.currency ?? 'EUR'}
+              onChange={(e) => onChange({ currency: e.target.value })}
+              style={selectStyle}
+            >
+              <option value="EUR">EUR — Euro</option>
+              <option value="GBP">GBP — British Pound</option>
+              <option value="SEK">SEK — Swedish Krona</option>
+              <option value="PLN">PLN — Polish Złoty</option>
+              <option value="CHF">CHF — Swiss Franc</option>
+            </select>
+          </div>
+
+          {/* Date Format */}
+          <div>
+            <label style={labelStyle}>Date Format</label>
+            <select
+              value={data.dateFormat ?? 'DD/MM/YYYY'}
+              onChange={(e) => onChange({ dateFormat: e.target.value })}
+              style={selectStyle}
+            >
+              <option value="DD/MM/YYYY">DD/MM/YYYY (European)</option>
+              <option value="MM/DD/YYYY">MM/DD/YYYY (US)</option>
+            </select>
+          </div>
+
+          {/* VAT Number Format */}
+          <div>
+            <label style={labelStyle}>VAT Number Format</label>
+            <input
+              type="text"
+              value={data.vatNumberHint ?? ''}
+              onChange={(e) => onChange({ vatNumberHint: e.target.value })}
+              placeholder="e.g. FR + 2 chars + 9 digits"
+              style={inputStyle}
+            />
+            <p style={{ fontSize: '11px', color: 'var(--text-disabled)', marginTop: '4px' }}>
+              Pre-filled with the standard format for your country. You can override this.
+            </p>
+          </div>
         </div>
       )}
 
@@ -115,4 +174,17 @@ const selectStyle: React.CSSProperties = {
   cursor: 'pointer',
   fontFamily: 'var(--font-dm-sans), sans-serif',
   transition: 'border-color 0.15s',
+}
+
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  border: '1px solid var(--border-default)',
+  borderRadius: '8px',
+  padding: '9px 12px',
+  fontSize: '14px',
+  backgroundColor: 'var(--bg-surface)',
+  color: 'var(--text-primary)',
+  outline: 'none',
+  fontFamily: 'var(--font-dm-sans), sans-serif',
+  boxSizing: 'border-box',
 }

@@ -28,7 +28,7 @@ export default async function DashboardLayout({
     .eq('id', authUser.id)
     .single()
 
-  if (!userProfile || !userProfile.business_id) {
+  if (!userProfile || !userProfile.onboarding_complete) {
     redirect('/onboarding')
   }
 
