@@ -101,54 +101,43 @@ export default function OnboardingPage() {
   async function handleFinish() {
     setSaving(true)
     try {
-      // 1. Check auth — using the static browser client
+      // 1. Verify session client-side first (fast fail)
       const { data: { user }, error: authError } = await supabase.auth.getUser()
-      if (authError) {
-        console.error('Onboarding auth error:', authError.message, authError)
-        router.push('/overview')
-        return
-      }
-      if (!user) {
-        console.error('Onboarding: no authenticated user — redirecting to login')
+      if (authError || !user) {
+        console.error('Onboarding: not authenticated')
         router.push('/login')
         return
       }
 
-      // 2. Insert business row
-      const { data: business, error: bizError } = await supabase
-        .from('businesses')
-        .insert({
-          name: data.businessName,
-          country_code: data.countryCode,
+      // 2. Call the server-side API route which uses the admin client.
+      //    This bypasses RLS entirely — the browser never writes to Supabase directly.
+      const res = await fetch('/api/onboarding/finish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          businessName: data.businessName,
+          countryCode: data.countryCode,
           industry: data.industry ?? null,
           locale: data.locale,
-          size_range: data.companySize ?? null,
-        })
-        .select('id')
-        .single()
+          companySize: data.companySize ?? null,
+        }),
+      })
 
-      if (bizError) {
-        console.error('Onboarding business insert error:', bizError.message, bizError)
-        throw bizError
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({ error: 'Unknown error' }))
+        console.error('Onboarding finish API error:', errBody)
+        throw new Error(errBody.error ?? 'Finish API failed')
       }
 
-      // 3. Update users row with business_id + mark onboarding complete
-      const { error: userError } = await supabase
-        .from('users')
-        .update({ business_id: business.id, onboarding_complete: true })
-        .eq('id', user.id)
+      const { businessId } = await res.json()
+      console.log('[onboarding] finish complete, businessId:', businessId)
 
-      if (userError) {
-        console.error('Onboarding user update error:', userError.message, userError)
-        throw userError
-      }
-
-      // 4. Upload logo if provided
-      if (data.logoFile && business?.id) {
+      // 4. Upload logo if provided (uses businessId from API response)
+      if (data.logoFile && businessId) {
         const ext = data.logoFile.name.split('.').pop()
         const { error: uploadError } = await supabase.storage
           .from('business-logos')
-          .upload(`${business.id}/logo.${ext}`, data.logoFile, { upsert: true })
+          .upload(`${businessId}/logo.${ext}`, data.logoFile, { upsert: true })
         if (uploadError) {
           console.warn('Logo upload failed (non-fatal):', uploadError.message)
         }
