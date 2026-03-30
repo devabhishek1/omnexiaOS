@@ -53,12 +53,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: bizError.message }, { status: 500 })
     }
 
-    // Update users row: assign business_id + mark onboarding complete
+    // Update users row: assign business_id, mark onboarding complete, sync locale
     const { error: userError } = await admin
       .from('users')
       .update({
         business_id: business.id,
         onboarding_complete: true,
+        locale: locale ?? 'en',
       })
       .eq('id', user.id)
 
