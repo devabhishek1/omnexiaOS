@@ -1,81 +1,210 @@
-> **NOTE:** Gmail OAuth token storage is already partially implemented.
-> The onboarding flow stores tokens via Supabase admin client to bypass RLS.
-> Check `lib/supabase/` for the admin client pattern before implementing
-> `gmail_tokens` storage. The `?gmail_connected=true` redirect param is already
-> wired in `app/api/auth/callback/google/route.ts`.
-
-# Phase 07 — Gmail API Integration
+# Phase 07 — Gmail API Integration (Real-time via Google Pub/Sub)
 **MILESTONE PHASE** — pause and await CONTINUE after completion.
 
 ## Your Job
-Wire up real Gmail data. Replace mock data in Communications with live Gmail messages. Implement polling, OAuth token storage, and send reply.
+Wire up real Gmail data using Google Pub/Sub webhooks for real-time sync (not polling).
+Replace mock data in Communications with live Gmail messages.
 
 ## Context
-Read `_docs/04-api-backend.md` sections 2 (Google OAuth Setup) and 3 (Gmail API) carefully. Every code pattern is documented there — follow it exactly.
+Read `_docs/04-api-backend.md` sections 2 and 3 before starting.
+NOTE: Gmail OAuth token storage is already partially implemented from onboarding.
+The admin client pattern for bypassing RLS already exists — check lib/supabase/ before implementing.
+The ?gmail_connected=true redirect param is already wired in app/api/auth/callback/google/route.ts.
+
+## Why Pub/Sub over polling
+Polling every 5 minutes = delayed messages, wasted API quota, unnecessary backend load.
+Google Pub/Sub = Gmail pushes to us the instant a message arrives. Free, instant, efficient.
+
+## Architecture
+```
+Gmail receives email
+  → Gmail notifies Google Pub/Sub topic
+    → Pub/Sub pushes to our webhook endpoint
+      → We fetch the new message via Gmail API
+        → Store in Supabase messages table
+          → Supabase Realtime pushes to browser
+            → UI updates instantly
+```
 
 ## Step 0 — Version Check
 ```bash
 npm info googleapis version
-npm info @google/generative-ai version
+```
+Search web: "Google Pub/Sub Gmail push notifications setup 2026 latest"
+
+## Step 1 — Google Cloud Pub/Sub Setup (one-time, manual)
+Instructions to follow in Google Cloud Console:
+1. Go to console.cloud.google.com → Pub/Sub
+2. Create a topic: `gmail-notifications`
+3. Create a push subscription pointing to:
+   `https://your-domain.com/api/gmail/webhook` (use ngrok for local dev)
+4. Grant Gmail permission to publish to the topic:
+   Run: `gcloud pubsub topics add-iam-policy-binding gmail-notifications \
+   --member="serviceAccount:gmail-api-push@system.gserviceaccount.com" \
+   --role="roles/pubsub.publisher"`
+5. Add to .env.local:
+   GOOGLE_PUBSUB_TOPIC=projects/YOUR_PROJECT_ID/topics/gmail-notifications
+
+Document these steps clearly in a README note — every connected Gmail account
+needs to call `users.watch()` to register with Pub/Sub.
+
+## Step 2 — Token Encryption Utility
+Create `lib/utils/crypto.ts` — AES-256-GCM encryption from `_docs/04-api-backend.md` section 8.
+`ENCRYPTION_KEY` must be 64 hex chars.
+
+## Step 3 — Gmail OAuth Helper (`lib/gmail/auth.ts`)
+`getGoogleAuthUrl()` with scopes: gmail.modify, calendar.readonly, contacts.readonly.
+`getValidAccessToken()` — auto-refreshes expired tokens, updates gmail_tokens table.
+Use admin Supabase client to bypass RLS when storing tokens.
+
+## Step 4 — Gmail Watch Registration (`lib/gmail/watch.ts`)
+After a user connects Gmail, register their inbox with Pub/Sub:
+```typescript
+export async function registerGmailWatch(userId: string) {
+  const accessToken = await getValidAccessToken(userId)
+  const response = await fetch(
+    'https://gmail.googleapis.com/gmail/v1/users/me/watch',
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        topicName: process.env.GOOGLE_PUBSUB_TOPIC,
+        labelIds: ['INBOX'],
+      })
+    }
+  )
+  const { historyId, expiration } = await response.json()
+  // Store historyId in gmail_tokens — used to fetch only new messages
+  await adminSupabase.from('gmail_tokens')
+    .update({ history_id: historyId, watch_expiry: new Date(parseInt(expiration)) })
+    .eq('user_id', userId)
+}
+```
+Watch expires every 7 days — add a daily cron to renew watches expiring within 24h.
+
+## Step 5 — Webhook Endpoint (`app/api/gmail/webhook/route.ts`)
+This is the endpoint Pub/Sub calls when a new Gmail arrives:
+```typescript
+export async function POST(request: Request) {
+  // 1. Verify the request is from Google Pub/Sub
+  const body = await request.json()
+  const data = JSON.parse(Buffer.from(body.message.data, 'base64').toString())
+  const { emailAddress, historyId } = data
+
+  // 2. Find the user by email
+  const token = await adminSupabase.from('gmail_tokens')
+    .select('*, users(business_id)')
+    .eq('email', emailAddress)
+    .single()
+
+  // 3. Fetch new messages since last historyId
+  const accessToken = await getValidAccessToken(token.user_id)
+  const newMessages = await fetchMessagesSinceHistory(accessToken, token.history_id, historyId)
+
+  // 4. For each new message: parse, upsert to DB, run urgency flagging
+  for (const msg of newMessages) {
+    const parsed = parseGmailMessage(msg)
+    await upsertMessage(parsed, token.users.business_id)
+    await flagUrgency(parsed, token.users.business_id) // Mistral AI — Phase 12
+  }
+
+  // 5. Update stored historyId
+  await adminSupabase.from('gmail_tokens')
+    .update({ history_id: historyId, last_synced_at: new Date() })
+    .eq('user_id', token.user_id)
+
+  return new Response('OK', { status: 200 })
+}
 ```
 
-## Step 1 — Token Encryption Utility
-Create `lib/utils/crypto.ts` — exact implementation from `_docs/04-api-backend.md` section 8.
-`ENCRYPTION_KEY` must be 64 hex chars. Add a comment: "Generate with: openssl rand -hex 32"
+## Step 6 — Gmail Message Parser (`lib/gmail/parse.ts`)
+Parse Gmail API message format:
+- Extract headers: From, To, Subject, Date, Message-ID, In-Reply-To
+- Decode base64url body (text/plain and text/html parts)
+- Extract sender name + email from From header
+- Return structured object matching messages table schema
 
-## Step 2 — Gmail OAuth Helper (`lib/gmail/auth.ts`)
-Implement `getGoogleAuthUrl()` from `_docs/04-api-backend.md` section 2.
-Scopes: `gmail.modify`, `calendar.readonly`, `contacts.readonly`.
+## Step 7 — Message Upsert (`lib/gmail/sync.ts`)
+```typescript
+export async function upsertMessage(parsed, businessId) {
+  // Upsert conversation (by threadId)
+  const { data: conversation } = await adminSupabase
+    .from('conversations')
+    .upsert({
+      business_id: businessId,
+      channel: 'gmail',
+      external_id: parsed.threadId,
+      participant_email: parsed.senderEmail,
+      participant_name: parsed.senderName,
+      subject: parsed.subject,
+      status: 'unread',
+      last_message_at: parsed.date,
+    }, { onConflict: 'external_id' })
+    .select().single()
 
-## Step 3 — Gmail Token Refresh (`lib/gmail/client.ts`)
-Implement `getValidAccessToken()` from `_docs/04-api-backend.md` section 2.
-Auto-refreshes expired tokens and updates `gmail_tokens` table.
+  // Insert message
+  await adminSupabase.from('messages').insert({
+    business_id: businessId,
+    conversation_id: conversation.id,
+    channel: 'gmail',
+    gmail_message_id: parsed.messageId,
+    direction: 'inbound',
+    sender_email: parsed.senderEmail,
+    sender_name: parsed.senderName,
+    subject: parsed.subject,
+    body_preview: parsed.body.slice(0, 200),
+    body_cached: parsed.body.slice(0, 5000),
+    is_read: false,
+    received_at: parsed.date,
+  })
+}
+```
 
-## Step 4 — Gmail Message Parsing (`lib/gmail/parse.ts`)
-Implement `parseGmailMessage()` — extracts headers (From, To, Subject, Date), decodes base64url body.
-Handle both `text/plain` and `text/html` parts.
+## Step 8 — Send Reply (`lib/gmail/send.ts`)
+RFC 2822 format reply via Gmail API with correct threadId reference.
+POST endpoint: `app/api/gmail/send/route.ts`
+On success: insert outbound message to DB, update conversation status to 'replied'.
 
-## Step 5 — Poll Edge Function (`supabase/functions/poll-gmail/index.ts`)
-Implement from `_docs/04-api-backend.md` section 3.
-- Runs every 5 minutes (cron configured separately)
-- Fetches new messages since `last_polled_at`
-- Upserts into `messages` + `conversations` tables
-- Calls urgency flagging (stub for now — returns `{ urgent: false }` until Gemini is wired in Phase 12)
-- Creates notification if urgent
-- Updates `last_polled_at`
+## Step 9 — Wire Communications Page to Real Data
+Replace mock data in ConversationList and ThreadView:
+- Query conversations table filtered by business_id
+- Messages fetched when conversation selected (by conversation_id)
+- Supabase Realtime subscription for new conversations + messages
+- Unread count badge on sidebar nav updates live
 
-## Step 6 — Send Reply (`lib/gmail/send.ts`)
-Implement `sendReply()` from `_docs/04-api-backend.md` section 3.
-RFC 2822 format, correct `threadId` reference.
+## Step 10 — Wire AI Reply Draft
+ThreadView "AI Draft" panel:
+- On opening unread conversation → POST to `/api/mistral/reply` (stub for now, returns mock)
+- This gets properly wired in Phase 12 when Mistral is integrated
+- For now: show loading state then display a placeholder draft
 
-## Step 7 — Reply API Route (`app/api/gmail/send/route.ts`)
-POST endpoint:
-- Validates user is authenticated
-- Calls `sendReply()`
-- Updates conversation status to 'replied'
-- Returns `{ success: true }`
+## Step 11 — Initial Gmail Sync
+When a user first connects Gmail (from onboarding or Settings):
+1. Call `registerGmailWatch()` to subscribe to Pub/Sub
+2. Fetch last 50 messages to seed the inbox immediately
+3. Store in DB via `upsertMessage()`
 
-## Step 8 — Wire Communications Page to Real Data
-Replace mock data in `ConversationList` and `ThreadView` with real Supabase queries:
-- `conversations` table filtered by `business_id`
-- Messages fetched when conversation selected
-- Realtime subscription for new messages
+## Step 12 — Local Development Setup
+Pub/Sub requires a public HTTPS URL. For local dev:
+```bash
+# Install ngrok
+npm install -g ngrok
+ngrok http 3000
+# Copy the https URL → add to Google Cloud Pub/Sub subscription
+# Add to .env.local: NEXT_PUBLIC_APP_URL=https://xxx.ngrok.io
+```
+Document this in README.
 
-## Step 9 — Connect Send Button
-In `ThreadView`, the "Send Reply" button:
-- POSTs to `/api/gmail/send`
-- Shows loading state
-- On success: adds outbound message to thread, clears AI draft
-- On error: shows error toast
-
-## Step 10 — Verify (requires real Gmail credentials in .env.local)
-If credentials not yet set up, verify with mock data still in place and note in commit message.
-1. `npm run build` passes
-2. `npx tsc --noEmit` passes
-3. Token encryption/decryption works (write a quick test in terminal)
+## Step 13 — Verify
+1. `npm run dev` + ngrok running
+2. Send a test email to the connected Gmail account
+3. Verify it appears in the inbox within seconds (not 5 minutes)
+4. Verify message stored in Supabase messages table
+5. Verify conversation appears in Communications page
+6. `npm run build` + `npx tsc --noEmit` pass
 
 ## Completion
 1. `git add .`
-2. `git commit -m "feat: phase-07 complete — Gmail OAuth, polling Edge Function, send reply, real inbox data"`
+2. `git commit -m "feat: phase-07 complete — Gmail Pub/Sub real-time sync, send reply, live inbox"`
 
 **✅ MILESTONE — output checkpoint message and wait for CONTINUE.**

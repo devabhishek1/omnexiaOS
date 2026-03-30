@@ -1,11 +1,15 @@
-# Phase 08 — Finance Module
+# Phase 08 — Finance Module (Native Invoicing + Pennylane Aggregator)
 **MILESTONE PHASE** — pause and await CONTINUE after completion.
 
 ## Your Job
-Build the complete Finance module: KPI bar, charts, invoice Kanban board, expense tracker, VAT panel, export.
+Build the complete Finance module with TWO data modes:
+1. **Native invoicing** — create and manage invoices directly inside Omnexia
+2. **Pennylane integration** — connect existing Pennylane account, sync invoices automatically
+
+Both modes feed into the same UI. Users can use either or both simultaneously.
 
 ## Context
-Read `_docs/01-product-spec.md` section 6 (Finance) and `_docs/02-tech-stack.md` (invoices + expenses tables) before starting.
+Read `_docs/01-product-spec.md` section 6 (Finance) before starting.
 
 ## Step 0 — Version Check
 ```bash
@@ -13,87 +17,209 @@ npm info recharts version
 npm info @dnd-kit/core version
 npm info @dnd-kit/sortable version
 ```
+Search web: "Pennylane API documentation 2026 authentication endpoints"
 
 ## Step 1 — Finance Page Layout (`app/(dashboard)/finance/page.tsx`)
-Server component. Fetches invoices + expenses + aggregates from Supabase.
+Server component. Fetches invoices from BOTH sources (native + Pennylane synced).
 Sections (top to bottom, gap 24px):
-1. KPI bar
-2. Two-column charts row
-3. VAT panel
-4. Invoice Kanban board
-5. Expense tracker
-6. Export button
+1. Data source indicator bar (shows: Native | Pennylane | Both)
+2. KPI bar
+3. Two-column charts row
+4. VAT panel
+5. Invoice board (Kanban)
+6. Expense tracker
+7. Export options
 
-## Step 2 — KPI Bar (`components/finance/KPIBar.tsx`)
-3 metric tiles in a row (full width card):
-- Revenue: sum of paid invoices current month (green)
-- Expenses: sum of expenses current month (red)
-- Net: revenue minus expenses (primary blue if positive, red if negative)
-- Month toggle: "< March 2026 >" to navigate months
+## Step 2 — Data Source Indicator (`components/finance/DataSourceBar.tsx`)
+Thin bar below the page title:
+- If Pennylane connected: green dot + "Pennylane synced · Last sync: [timestamp]" + "Sync now" button
+- If not connected: "Connect Pennylane to import existing invoices →" link (goes to Settings)
+- Always shows: native invoice count + Pennylane invoice count if both active
+- "Showing: All invoices" with toggle to filter by source
 
-## Step 3 — Charts (`components/finance/RevenueChart.tsx` + `components/finance/CashFlowChart.tsx`)
-Use `recharts`. Read latest recharts docs pattern before implementing.
+## Step 3 — KPI Bar (`components/finance/KPIBar.tsx`)
+3 metric tiles (full width card):
+- Revenue: sum of paid invoices current month (green) — both sources combined
+- Pending: total pending invoices value (amber)
+- Overdue: total overdue value (red) with count badge
+- Month toggle: "< March 2026 >"
+- Source filter: "All | Native | Pennylane" pill toggle
 
-**RevenueChart:** Bar chart. X-axis: weeks of current month. Two bars per week: Revenue (green) vs Expenses (red). Responsive container.
+## Step 4 — Charts
+**RevenueChart** (`components/finance/RevenueChart.tsx`):
+Bar chart. X: weeks of current month. Two bars: Revenue (green) vs Expenses (red). Recharts.
 
-**CashFlowChart:** Line chart. X-axis: next 30 days. Single line showing projected cash position. Mock projection: current balance ± scheduled invoices due.
+**CashFlowChart** (`components/finance/CashFlowChart.tsx`):
+Line chart. X: next 30 days. Projected cash position based on due dates. Recharts.
 
-## Step 4 — VAT Panel (`components/finance/VATPanel.tsx`)
-Card showing:
+## Step 5 — VAT Panel (`components/finance/VATPanel.tsx`)
 - Current quarter VAT liability
-- VAT rate for business country (from `lib/utils/vat.ts`)
-- "Total invoiced excl. VAT" + "VAT amount" + "Total incl. VAT"
-- Small: "Based on [country] standard VAT rate of [X]%"
+- VAT rate from business country (lib/utils/vat.ts)
+- Breakdown: subtotal + VAT amount + total incl. VAT
+- "Based on [Country] standard rate of [X]%"
+- Manual override option for businesses with special VAT arrangements
 
-Create `lib/utils/vat.ts` with `VAT_RATES` and `VAT_NUMBER_PATTERNS` from `_docs/04-api-backend.md` section 9.
+## Step 6 — Invoice Kanban Board (`components/finance/InvoiceBoard.tsx`)
+4 columns: Unpaid → Sent → Paid → Overdue
+Uses @dnd-kit for drag between columns.
 
-## Step 5 — Invoice Kanban Board (`components/finance/InvoiceBoard.tsx`)
-Use `@dnd-kit/core` and `@dnd-kit/sortable`.
-4 columns: Unpaid | Sent | Paid | Overdue
-Each card shows: client name, amount (bold), due date, days overdue (if applicable).
-Drag card between columns → updates `status` in Supabase.
-Overdue column: red header tint.
-"+ Create Invoice" button above the board (right-aligned).
+Each card shows:
+- Client name (bold)
+- Amount (large, formatted with currency)
+- Due date
+- Source badge: "Native" (blue) or "Pennylane" (green) — small pill
+- Days overdue (red) if applicable
+- **"Follow up" button** on Overdue cards:
+  - Opens pre-written AI-generated email in Communications compose modal
+  - Subject: "Reminder: Invoice [amount] due [date]"
+  - Body: professional payment reminder generated by Mistral (stubbed for now)
+  - This bridges Finance → Communications — core workflow
 
-## Step 6 — Invoice Creation Modal (`components/finance/InvoiceModal.tsx`)
-Triggered by "+ Create Invoice" or `?create=true` URL param.
+Pennylane-sourced invoices: read-only (can't drag to change status — status comes from Pennylane)
+Native invoices: fully draggable
+
+"+ Create Invoice" button — top right, opens invoice creation modal.
+
+## Step 7 — Invoice Creation Modal (`components/finance/InvoiceModal.tsx`)
+For NATIVE invoices only. Clear "Create Native Invoice" header.
 Fields:
-- Client name (text input)
-- Line items: table with rows (description, quantity, unit price) + "Add line" button
-- Auto-calculated: subtotal, VAT (rate from business country), total
+- Client name (text) + Client email (optional)
+- Line items table: description + quantity + unit price + line total (auto-calculated)
+- "+ Add line item" button
+- Subtotal (auto) + VAT rate (pre-filled from country, editable) + Total (auto)
 - Due date (date picker)
 - Notes (textarea, optional)
-- "Save Invoice" primary button → inserts to Supabase with status 'unpaid'
+- Save → inserts to invoices table with source: 'native'
 
-## Step 7 — Expense Tracker (`components/finance/ExpenseTable.tsx`)
-Table with columns: Date / Description / Category / Amount / Receipt / Actions
-- "Add Expense" button opens inline form row at top of table
-- Fields: description, amount, category (dropdown: Office/Travel/Marketing/Software/Other), date, receipt upload
-- Receipt upload → stores in Supabase Storage `receipts` bucket
-- Delete button per row
+## Step 8 — Pennylane Integration (`lib/pennylane/`)
 
-## Step 8 — Export Button
-"Export" dropdown button: CSV or PDF (PDF just shows a toast "PDF export coming soon" for v1).
-CSV export: generates and downloads invoices + expenses as CSV using browser Blob API.
+### `lib/pennylane/client.ts`
+```typescript
+const PENNYLANE_BASE = 'https://app.pennylane.com/api/external/v1'
 
-## Step 9 — Check Overdue Edge Function (`supabase/functions/check-overdue/index.ts`)
-Daily cron at 9am UTC:
-- Query invoices where `due_date < NOW()` and `status != 'paid'`
-- Update status to `overdue`
-- Insert notification row for admin
-- (Resend email wired in Phase 13)
+export async function pennylaneRequest(endpoint: string, accessToken: string) {
+  const res = await fetch(`${PENNYLANE_BASE}${endpoint}`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    }
+  })
+  if (!res.ok) throw new Error(`Pennylane API error: ${res.status}`)
+  return res.json()
+}
+```
 
-## Step 10 — Verify
-1. `npm run dev` → open `/finance`
-2. KPI bar renders with data
-3. Charts render (may use mock data)
-4. Kanban board renders, drag works between columns
-5. Invoice creation modal saves to Supabase
-6. Expense table adds/deletes rows
-7. `npm run build` passes
+### `lib/pennylane/sync.ts`
+```typescript
+export async function syncPennylaneInvoices(businessId: string) {
+  // 1. Get Pennylane token for this business
+  const { data: integration } = await adminSupabase
+    .from('integrations')
+    .select('access_token, refresh_token')
+    .eq('business_id', businessId)
+    .eq('provider', 'pennylane')
+    .single()
+
+  // 2. Fetch customer invoices from Pennylane
+  const { invoices } = await pennylaneRequest('/customer_invoices', integration.access_token)
+
+  // 3. Upsert into invoices table with source: 'pennylane'
+  for (const inv of invoices) {
+    await adminSupabase.from('invoices').upsert({
+      business_id: businessId,
+      client_name: inv.customer?.name,
+      total: parseFloat(inv.amount),
+      status: mapPennylaneStatus(inv.status), // 'paid'|'unpaid'|'overdue'
+      due_date: inv.due_date,
+      issued_date: inv.date,
+      source: 'pennylane',
+      external_id: inv.id.toString(),
+      currency: inv.currency || 'EUR',
+    }, { onConflict: 'external_id,source' })
+  }
+}
+
+function mapPennylaneStatus(status: string): string {
+  const map: Record<string, string> = {
+    'paid': 'paid',
+    'draft': 'unpaid',
+    'not_paid': 'unpaid',
+    'late': 'overdue',
+  }
+  return map[status] || 'unpaid'
+}
+```
+
+### Pennylane OAuth (`app/api/integrations/pennylane/`)
+Search web for current Pennylane OAuth 2.0 documentation before implementing.
+Standard OAuth flow: redirect to Pennylane → get code → exchange for tokens → store.
+
+Endpoints needed:
+- `app/api/integrations/pennylane/connect/route.ts` — initiates OAuth
+- `app/api/integrations/pennylane/callback/route.ts` — handles callback, stores tokens
+
+## Step 9 — Integrations Table
+Add to Supabase (run in SQL Editor):
+```sql
+CREATE TABLE IF NOT EXISTS integrations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id UUID REFERENCES businesses(id) ON DELETE CASCADE,
+  provider TEXT NOT NULL, -- 'pennylane' | 'axonaut' | 'henrri'
+  access_token TEXT, -- encrypted
+  refresh_token TEXT, -- encrypted
+  expires_at TIMESTAMPTZ,
+  last_synced_at TIMESTAMPTZ,
+  status TEXT DEFAULT 'connected', -- 'connected' | 'error' | 'disconnected'
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(business_id, provider)
+);
+
+ALTER TABLE integrations ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "business_integrations" ON integrations
+  FOR ALL USING (business_id = get_user_business_id());
+```
+
+Also add `source` and `external_id` columns to invoices table:
+```sql
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'native';
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS external_id TEXT;
+ALTER TABLE invoices ADD UNIQUE (external_id, source);
+```
+
+## Step 10 — Expense Tracker (`components/finance/ExpenseTable.tsx`)
+Table: Date / Description / Category / Amount / Receipt / Actions
+- "Add Expense" → inline form row at top
+- Fields: description, amount, category dropdown, date, receipt upload (Supabase Storage receipts bucket)
+- Delete per row
+- CSV export of expenses
+
+## Step 11 — Export
+"Export" dropdown:
+- Export Invoices (CSV) — all invoices both sources
+- Export Expenses (CSV)
+- Export Full Report (CSV) — everything combined
+
+## Step 12 — Follow-up Email Flow
+The "Follow up" button on overdue invoice cards:
+- Opens Communications compose modal with pre-filled content
+- Pass invoice data as URL params: `/communications?compose=true&type=followup&client=X&amount=Y&days=Z`
+- Compose modal detects these params and pre-fills appropriately
+- Mistral draft generation stubbed for now — wired in Phase 12
+
+## Step 13 — Verify
+1. `npm run dev` → `/finance`
+2. KPI bar renders
+3. Charts render
+4. Invoice Kanban renders with mock native invoices
+5. Source badges show correctly
+6. "Follow up" button on overdue card opens compose modal
+7. Invoice creation modal saves to Supabase
+8. "Connect Pennylane" link goes to Settings
+9. Expense table add/delete works
+10. `npm run build` + `npx tsc --noEmit` pass
 
 ## Completion
 1. `git add .`
-2. `git commit -m "feat: phase-08 complete — finance module (KPI, charts, Kanban invoices, expenses, VAT, export)"`
+2. `git commit -m "feat: phase-08 complete — finance (native invoicing + Pennylane aggregator, follow-up flow)"`
 
 **✅ MILESTONE — output checkpoint message and wait for CONTINUE.**

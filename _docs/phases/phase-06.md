@@ -7,86 +7,91 @@ Build the full Communications module UI with mock data. Real Gmail sync comes in
 ## Context
 Read `_docs/01-product-spec.md` section 5 (Communications) and `_docs/03-design-system.md` before starting.
 
+## Key Design Principle — Assistant Workflow
+Omnexia is designed for a business owner who has an assistant managing their inbox.
+The UI must make this crystal clear:
+- Every conversation shows WHO it is assigned to
+- The "Assign to" dropdown must be front and centre in the thread view header
+- Replies are sent "as" the business — show "Replying as [Business Name]" above the reply box
+- The composer shows the business name/email as sender, not the individual user's name
+
 ## Step 1 — Page Layout (`app/(dashboard)/communications/page.tsx`)
 Three-panel layout:
-- Top filter bar (full width, 56px height, sticky)
+- Top filter bar (full width, 56px, sticky)
 - Left panel: conversation list (320px fixed, scrollable)
 - Right panel: thread view (flex-1)
 
 ## Step 2 — Filter Bar (`components/communications/FilterBar.tsx`)
 - Channel tabs: All | Gmail | Instagram (coming soon) | Facebook (coming soon)
-  - Coming soon tabs: muted text, no click action, "(soon)" label
-- Status filters: Unread | Read | Replied | Pending — pill toggle buttons
-- Priority toggle: "⚡ Priority" button, activates priority filter
-- Search input (right side): 240px, "Search messages..."
-- Compose button: "+ Compose" primary button (right)
+- Status filters: Unread | Read | Replied | Pending — pill toggles
+- Priority toggle: "⚡ Priority" button
+- "👤 Mine" toggle — filters to conversations assigned to current user
+- Search input: 240px
+- "+ Compose" primary button (far right)
 
 ## Step 3 — Conversation List (`components/communications/ConversationList.tsx`)
-Scrollable list. Each conversation item:
-- Avatar (36px initials)
-- Channel badge
-- Sender name (bold if unread, normal if read)
-- Subject line (muted, truncated)
+Each item:
+- Avatar (36px initials) + channel badge + sender name (bold if unread)
+- Subject preview (truncated, muted)
 - Timestamp (right-aligned)
-- Unread dot (blue 8px) for unread items
-- Priority flame icon 🔥 for priority-flagged items
-- Label chips (small, below subject)
-- Assigned-to mini avatar (bottom right) if assigned
-- Selected state: `var(--accent-light)` background
-- Hover: `var(--bg-elevated)` background
+- Unread dot (blue 8px) + priority flame 🔥 if urgent
+- Label chips
+- Assigned-to mini avatar (20px, bottom right) — always visible
+- Selected: accent-light bg. Hover: bg-elevated
 
-Mock data: 8 conversations (mix of Gmail, Instagram placeholder, Facebook placeholder).
+Mock data: 8 conversations (5 Gmail, 2 Instagram placeholder, 1 Facebook placeholder)
 
 ## Step 4 — Thread View (`components/communications/ThreadView.tsx`)
-Shown when a conversation is selected. If none selected: empty state with inbox icon.
+Empty state: inbox icon + "Select a conversation to start reading"
 
-### Header:
-- Subject line (bold 16px)
-- Channel badge
-- Assigned-to dropdown (team member selector)
-- Label/tag button
-- Mark read/unread button
-- Three-dot menu (more actions)
+### Thread header:
+- Subject (bold 16px) + channel badge
+- **Assign to dropdown** — top right, prominent, shows current assignee avatar + name
+- Label button + Mark read/unread + three-dot menu
 
-### Message thread:
-- Scrollable list of messages in conversation
-- Each message:
-  - Sender avatar + name + email + timestamp
-  - Message body (rendered with line breaks)
-  - Inbound: left-aligned, white card
-  - Outbound: right-aligned, light blue card
+### Sender info bar:
+- Sender name + email + timestamp + "via Gmail" indicator
 
-### AI Reply Panel (auto-shows for unread conversations):
-- Appears below the thread as a card
-- "✦ AI" badge + "Suggested reply"
-- Text area pre-filled with mock draft reply
-- "Regenerate" ghost button
-- "Dismiss" ghost button
-- "Send Reply" primary button
-- Indigo left border on the card
+### Message thread (scrollable):
+- Inbound: left-aligned, white card
+- Outbound: right-aligned, accent-light card
+- Full thread chronological order
+
+### Reply composer (always visible at bottom):
+- **"Replying as [Business Name]"** in muted text above textarea — non-negotiable
+- Textarea (min 3 rows, auto-expands)
+- Send button (primary, shows "Send via Gmail") + Discard (ghost)
+
+### AI Reply Panel (above composer, auto-appears for unread):
+- Indigo left border card
+- "✦ AI Draft" badge + "Regenerate" ghost button + "✕ Dismiss"
+- Mock draft pre-filled in textarea
+- "Use this draft" button → copies into composer
+- Dismissed state remembered per conversation in localStorage
 
 ## Step 5 — Compose Modal (`components/communications/ComposeModal.tsx`)
-Triggered by "+ Compose" button or `?compose=true` URL param:
-- Modal overlay
-- Fields: To (email input), Subject, Body (textarea)
-- "Send" primary button + "Cancel" ghost button
-- Channel selector: Gmail only for now
+- To (email chips) + Subject + Body (8 rows textarea)
+- "Sending as [Business Name]" muted text above footer
+- "Send via Gmail" primary + Cancel ghost
 
-## Step 6 — Empty States
-- No conversation selected: centered inbox icon + "Select a conversation to read"
-- No conversations at all: centered icon + "No messages yet" + "Connect Gmail to get started" button
-- Priority filter active with no results: "No priority messages right now"
+## Step 6 — Empty + Coming Soon States
+- No conversations: "No messages yet — Gmail will sync shortly"
+- Instagram tab: "Instagram DMs coming soon"
+- Facebook tab: "Facebook Messenger coming soon"
+- Priority empty: "No priority messages — you're all caught up 🎉"
 
 ## Step 7 — Verify
-1. `npm run dev` → open `/communications`
-2. Click conversations — thread view updates
-3. AI reply panel appears for unread items
-4. Filter tabs work (filter the mock list)
-5. Compose modal opens and closes
-6. `npm run build` passes
+1. `npm run dev` → `/communications` renders
+2. Conversation list shows mock data
+3. Clicking conversation updates thread view
+4. Assign-to dropdown prominent in thread header
+5. "Replying as [Business Name]" visible above reply textarea
+6. AI draft panel auto-appears for unread items
+7. Compose modal opens/closes
+8. `npm run build` + `npx tsc --noEmit` pass
 
 ## Completion
 1. `git add .`
-2. `git commit -m "feat: phase-06 complete — communications module UI with mock data"`
+2. `git commit -m "feat: phase-06 complete — communications UI with assistant workflow"`
 
 **✅ MILESTONE — output checkpoint message and wait for CONTINUE.**

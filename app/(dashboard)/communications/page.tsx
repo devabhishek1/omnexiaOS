@@ -9,7 +9,7 @@ import { ComposeModal } from '@/components/communications/ComposeModal'
 import type { Conversation } from '@/components/communications/mock-data'
 
 // ---------------------------------------------------------------------------
-// Adapt Supabase rows → Conversation shape used by UI components
+// Adapt Supabase rows → Conversation shape
 // ---------------------------------------------------------------------------
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -21,19 +21,13 @@ function adaptMessages(rows: any[]): Conversation['messages'] {
     senderEmail: m.sender_email ?? '',
     body: m.body_cached ?? m.body_preview ?? '',
     timestamp: m.received_at
-      ? new Date(m.received_at).toLocaleString([], {
-          month: 'short',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-        })
+      ? new Date(m.received_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
       : '',
   }))
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function adaptConversation(row: any, messages: Conversation['messages'] = []): Conversation {
-  const lastMsg = messages[messages.length - 1]
   return {
     id: row.id,
     channel: row.channel ?? 'gmail',
@@ -44,12 +38,9 @@ function adaptConversation(row: any, messages: Conversation['messages'] = []): C
       email: row.participant_email ?? '',
     },
     subject: row.subject ?? '(no subject)',
-    preview: lastMsg?.body?.slice(0, 120) ?? '',
+    preview: messages[messages.length - 1]?.body?.slice(0, 120) ?? '',
     timestamp: row.last_message_at
-      ? new Date(row.last_message_at).toLocaleTimeString([], {
-          hour: '2-digit',
-          minute: '2-digit',
-        })
+      ? new Date(row.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       : '',
     labels: row.labels ?? [],
     assignedTo: row.assigned_to ?? undefined,
@@ -67,26 +58,54 @@ export default function CommunicationsPage() {
 
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [loading, setLoading] = useState(true)
+  const [businessName, setBusinessName] = useState('Your Business')
+  const [currentUserEmail, setCurrentUserEmail] = useState('')
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [dismissedAI, setDismissedAI] = useState<Set<string>>(new Set())
 
+  // Filters
   const [activeChannel, setActiveChannel] = useState('all')
   const [activeStatus, setActiveStatus] = useState('all')
   const [priorityOnly, setPriorityOnly] = useState(false)
+  const [mineOnly, setMineOnly] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [composeOpen, setComposeOpen] = useState(false)
+
+  // ---------------------------------------------------------------------------
+  // Load business name + user info
+  // ---------------------------------------------------------------------------
+
+  useEffect(() => {
+    async function loadMeta() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      setCurrentUserEmail(user.email ?? '')
+
+      const { data: userRow } = await supabase
+        .from('users')
+        .select('business_id')
+        .eq('id', user.id)
+        .single()
+
+      if (userRow?.business_id) {
+        const { data: biz } = await supabase
+          .from('businesses')
+          .select('name')
+          .eq('id', userRow.business_id)
+          .single()
+        if (biz?.name) setBusinessName(biz.name)
+      }
+    }
+    loadMeta()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // ---------------------------------------------------------------------------
   // Load conversations
   // ---------------------------------------------------------------------------
 
   const loadConversations = useCallback(async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) return
-
     const { data } = await supabase
       .from('conversations')
       .select('*')
@@ -101,61 +120,44 @@ export default function CommunicationsPage() {
   }, [loadConversations])
 
   // ---------------------------------------------------------------------------
-  // Realtime — conversations and messages
+  // Realtime
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
     const channel = supabase
       .channel('comms-realtime')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'conversations' },
-        () => loadConversations()
-      )
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
-        (payload) => {
-          const msg = payload.new as { conversation_id: string }
-          setConversations((prev) =>
-            prev.map((c) =>
-              c.id === msg.conversation_id ? { ...c, status: 'unread' } : c
-            )
-          )
-        }
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => loadConversations())
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+        const msg = payload.new as { conversation_id: string }
+        setConversations((prev) =>
+          prev.map((c) => c.id === msg.conversation_id ? { ...c, status: 'unread' } : c)
+        )
+      })
       .subscribe()
 
-    return () => {
-      supabase.removeChannel(channel)
-    }
+    return () => { supabase.removeChannel(channel) }
   }, [supabase, loadConversations])
 
   // ---------------------------------------------------------------------------
   // Load messages for selected conversation
   // ---------------------------------------------------------------------------
 
-  const loadMessages = useCallback(
-    async (conversationId: string) => {
-      const { data } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('conversation_id', conversationId)
-        .order('received_at', { ascending: true })
+  const loadMessages = useCallback(async (conversationId: string) => {
+    const { data } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('conversation_id', conversationId)
+      .order('received_at', { ascending: true })
 
-      if (!data) return
+    if (!data) return
 
-      setConversations((prev) =>
-        prev.map((c) =>
-          c.id === conversationId ? { ...c, messages: adaptMessages(data) } : c
-        )
-      )
-    },
-    [supabase]
-  )
+    setConversations((prev) =>
+      prev.map((c) => c.id === conversationId ? { ...c, messages: adaptMessages(data) } : c)
+    )
+  }, [supabase])
 
   // ---------------------------------------------------------------------------
-  // Filtering
+  // Filtered list
   // ---------------------------------------------------------------------------
 
   const filtered = useMemo(() => {
@@ -163,22 +165,21 @@ export default function CommunicationsPage() {
       if (activeChannel !== 'all' && c.channel !== activeChannel) return false
       if (activeStatus !== 'all' && c.status !== activeStatus) return false
       if (priorityOnly && !c.priority) return false
+      if (mineOnly && c.assignedTo !== 'You' && c.assignedTo !== currentUserEmail) return false
       if (searchQuery) {
         const q = searchQuery.toLowerCase()
         if (
           !c.sender.name.toLowerCase().includes(q) &&
           !c.subject.toLowerCase().includes(q) &&
           !c.preview.toLowerCase().includes(q)
-        )
-          return false
+        ) return false
       }
       return true
     })
-  }, [conversations, activeChannel, activeStatus, priorityOnly, searchQuery])
+  }, [conversations, activeChannel, activeStatus, priorityOnly, mineOnly, searchQuery, currentUserEmail])
 
   const selectedConversation = conversations.find((c) => c.id === selectedId) ?? null
-  const showAIPanel =
-    !!selectedConversation?.aiSuggestedReply && !dismissedAI.has(selectedId ?? '')
+  const showAIPanel = !!selectedConversation?.aiSuggestedReply && !dismissedAI.has(selectedId ?? '')
 
   // ---------------------------------------------------------------------------
   // Actions
@@ -186,21 +187,16 @@ export default function CommunicationsPage() {
 
   async function handleSelect(id: string) {
     setSelectedId(id)
-
     await supabase.from('conversations').update({ status: 'read' }).eq('id', id)
-
     setConversations((prev) =>
-      prev.map((c) => (c.id === id && c.status === 'unread' ? { ...c, status: 'read' } : c))
+      prev.map((c) => c.id === id && c.status === 'unread' ? { ...c, status: 'read' } : c)
     )
-
     await loadMessages(id)
   }
 
   async function handleMarkUnread(id: string) {
     await supabase.from('conversations').update({ status: 'unread' }).eq('id', id)
-    setConversations((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, status: 'unread' } : c))
-    )
+    setConversations((prev) => prev.map((c) => c.id === id ? { ...c, status: 'unread' } : c))
   }
 
   function handleDismissAI(id: string) {
@@ -208,8 +204,6 @@ export default function CommunicationsPage() {
   }
 
   async function handleSendReply(id: string, text: string) {
-    setDismissedAI((prev) => new Set([...prev, id]))
-
     const conv = conversations.find((c) => c.id === id)
     if (conv) {
       await fetch('/api/gmail/send', {
@@ -225,10 +219,7 @@ export default function CommunicationsPage() {
       })
       await loadMessages(id)
     }
-
-    setConversations((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, status: 'replied' } : c))
-    )
+    setConversations((prev) => prev.map((c) => c.id === id ? { ...c, status: 'replied' } : c))
   }
 
   // ---------------------------------------------------------------------------
@@ -244,7 +235,7 @@ export default function CommunicationsPage() {
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
-          background: 'var(--bg-base)',
+          background: '#F9F9F6',
         }}
       >
         <FilterBar
@@ -254,23 +245,16 @@ export default function CommunicationsPage() {
           setActiveStatus={setActiveStatus}
           priorityOnly={priorityOnly}
           setPriorityOnly={setPriorityOnly}
+          mineOnly={mineOnly}
+          setMineOnly={setMineOnly}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
           onCompose={() => setComposeOpen(true)}
         />
 
         {loading ? (
-          <div
-            style={{
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
-              Loading inbox…
-            </span>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ color: '#9CA3AF', fontSize: '13px' }}>Loading inbox…</span>
           </div>
         ) : (
           <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
@@ -284,6 +268,7 @@ export default function CommunicationsPage() {
               conversation={selectedConversation}
               showAIPanel={showAIPanel}
               priorityOnly={priorityOnly}
+              businessName={businessName}
               onDismissAI={handleDismissAI}
               onSendReply={handleSendReply}
               onMarkUnread={handleMarkUnread}

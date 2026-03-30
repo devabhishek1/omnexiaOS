@@ -2,52 +2,90 @@
 **MILESTONE PHASE** — pause and await CONTINUE after completion.
 
 ## Your Job
-Build the Settings page with all 4 tabs: Business, Integrations, Notifications, Account.
+Build the Settings page with all 4 tabs including Pennylane integration,
+CSV import/export, and placeholders for Axonaut and Henrri.
 
 ## Context
 Read `_docs/01-product-spec.md` section 9 (Settings) before starting.
 
 ## Step 1 — Settings Layout (`app/(dashboard)/settings/page.tsx`)
-Client component (needs interactivity for tabs).
-4 tabs using shadcn `Tabs` component: Business | Integrations | Notifications | Account
+Client component. 4 tabs using shadcn Tabs: Business | Integrations | Notifications | Account
 
 ## Step 2 — Business Tab
 Editable form:
 - Business name input
-- Logo: current logo preview + "Change logo" upload button
-- Country/region selector (same dropdown as onboarding)
-- VAT number input with format validation (use `VAT_NUMBER_PATTERNS` from `lib/utils/vat.ts`)
-- "Save changes" button → updates `businesses` table
-- Show success toast on save
+- Logo: current preview + "Change logo" upload button → Supabase Storage business-logos bucket
+- Country/region selector (same as onboarding Step 3)
+- VAT number input with format validation (VAT_NUMBER_PATTERNS from lib/utils/vat.ts)
+- VAT rate: editable number input (pre-filled from country, manually overridable)
+- Currency: dropdown (EUR default for all EU)
+- Date format: DD/MM/YYYY or MM/DD/YYYY toggle
+- "Save changes" → updates businesses table
+- Success toast on save
 
 ## Step 3 — Integrations Tab
-Cards for each integration:
+Organised in sections:
 
+### Communications Integrations
 **Gmail card:**
-- Status: Connected (green dot) or Disconnected (red dot)
-- Connected: shows email address, "Disconnect" button
-- Disconnected: "Connect Gmail" button → triggers OAuth
-- Last synced: timestamp
+- Status indicator: Connected (green dot + email address) or Disconnected (red dot)
+- Connected state: "Connected as [email]" + "Disconnect" button + "Last synced: [timestamp]"
+- Disconnected state: "Connect Gmail" button → triggers OAuth
+- Webhook status: "Real-time sync active" or "Webhook inactive — reconnect"
 
 **Instagram card:**
-- "Coming soon" badge
-- Muted description: "Instagram DMs integration — available in a future update"
-- Greyed out
+- "Coming soon" amber badge
+- Muted description + greyed UI
+- "Notify me when available" toggle (stores in user preferences)
 
 **Facebook card:**
 - Same as Instagram
 
+### Finance Integrations
+**Pennylane card:**
+- Status: Connected (green) or Disconnected
+- Connected: account name + "Last synced: [timestamp]" + "Sync now" button + "Disconnect"
+- Disconnected: "Connect Pennylane" primary button
+- Below: "Pennylane is the most popular invoicing tool for French SMBs"
+- OAuth flow: redirect to Pennylane → callback → store tokens
+
+**Axonaut card:**
+- "Coming soon" badge
+- Muted description: "Connect Axonaut to sync your invoices and quotes"
+
+**Henrri (by Rivalis) card:**
+- "Coming soon" badge
+- Muted description: "Connect Henrri to sync your invoices"
+
+**QuickBooks / Sage card:**
+- "Coming soon" badge
+
+**CSV Import card (always available, no "coming soon"):**
+- Title: "Import invoices from CSV / Excel"
+- Description: "Upload a spreadsheet with your existing invoices"
+- "Upload file" button → opens file picker (accepts .csv, .xlsx)
+- Expected columns shown: Client, Amount, Status, Due Date
+- On upload: parse file, preview first 5 rows in a table, confirm import
+- Maps columns automatically, manual mapping fallback
+- Imports to invoices table with source: 'csv_import'
+
+**CSV Export card:**
+- "Export all data" button → downloads full invoices + expenses CSV
+- "Export invoices only" + "Export expenses only" options
+
+### Calendar Integration
 **Google Calendar card:**
 - Status: Connected / Disconnected
 - Toggle to enable/disable calendar sync for Planning module
+- Connected: shows which calendar is synced
 
 ## Step 4 — Notifications Tab
-Toggle switches with labels:
+Toggle switches:
 
 **Daily AI Digest:**
 - Toggle on/off
-- Time picker: "Deliver at [07:00] [timezone]"
-- Delivery method: "Email" toggle + "In-app" toggle (both can be on)
+- Time picker (default 07:00)
+- Delivery: "Email" toggle + "In-app" toggle
 
 **Invoice Overdue Alerts:**
 - Toggle on/off
@@ -55,50 +93,56 @@ Toggle switches with labels:
 
 **New Message Alerts:**
 - Toggle on/off
-- In-app only label
+- In-app only
 
-"Save preferences" button → updates user preferences in Supabase.
+**Pennylane Sync Alerts:**
+- Toggle on/off
+- "Notify when sync fails or finds new overdue invoices"
+
+"Save preferences" → updates user preferences in Supabase
 
 ## Step 5 — Account Tab
-Sections:
-
 **Language:**
-- Language selector (6 options with flags)
-- "Save" → updates `users.locale`, reloads with new locale
+- Language selector (6 options with flags, names in own language)
+- "Save" → updates users.locale + businesses.locale, reloads with new locale
 
 **Password:**
-- Current password + New password + Confirm password
-- "Update password" → `supabase.auth.updateUser({ password })`
+- Current + New + Confirm password
+- "Update password" → supabase.auth.updateUser({ password })
 
 **Billing (placeholder):**
 - "Plan: Pro" badge
-- "Manage subscription" button (disabled, shows tooltip "Coming soon")
+- "Manage subscription" button (disabled, tooltip "Coming soon")
 
 **Data & Privacy:**
-- "Download my data" button → triggers GDPR export API route
-- Returns JSON/CSV zip of all business data
+- "Download my data" → GDPR export (JSON) via /api/account/export
+- "Delete account" → confirmation modal, 30-day grace period
 
-**Danger Zone:**
-- "Delete account" button (red, outlined)
-- Confirmation modal: type business name to confirm
-- On confirm: soft delete (sets status to 'deactivated'), 30-day grace period notice
+## Step 6 — GDPR Export Route (`app/api/account/export/route.ts`)
+Fetches all data for business_id across all tables.
+Returns JSON with Content-Disposition: attachment; filename="omnexia-export.json"
 
-## Step 6 — GDPR Export API Route (`app/api/account/export/route.ts`)
-GET endpoint:
-- Fetches all data for `business_id` from all tables
-- Returns JSON with all data
-- Sets `Content-Disposition: attachment; filename="omnexia-export.json"`
+## Step 7 — CSV Import Logic (`app/api/finance/import/route.ts`)
+POST endpoint accepting multipart/form-data with CSV or XLSX file.
+- Parse file (use papaparse for CSV, xlsx library for Excel)
+- Auto-detect columns by header name matching
+- Validate required fields (client name, amount, status)
+- Insert to invoices table with source: 'csv_import'
+- Return { imported: N, errors: [] }
 
-## Step 7 — Verify
-1. `npm run dev` → open `/settings`
+## Step 8 — Verify
+1. `npm run dev` → `/settings`
 2. All 4 tabs render
 3. Business form saves correctly
-4. Notifications toggles save
-5. Language change updates UI
-6. `npm run build` passes
+4. Pennylane card shows connect button
+5. CSV import card visible and working
+6. Instagram/Facebook/Axonaut/Henrri show "coming soon"
+7. Notifications toggles save
+8. Language change updates UI
+9. `npm run build` + `npx tsc --noEmit` pass
 
 ## Completion
 1. `git add .`
-2. `git commit -m "feat: phase-11 complete — settings (business, integrations, notifications, account, GDPR export)"`
+2. `git commit -m "feat: phase-11 complete — settings (business, Pennylane+CSV integrations, notifications, account, GDPR)"`
 
 **✅ MILESTONE — output checkpoint message and wait for CONTINUE.**

@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { encrypt } from '@/lib/utils/crypto'
+import { registerGmailWatch } from '@/lib/gmail/watch'
+import { initialSync } from '@/lib/gmail/sync'
 import { NextResponse } from 'next/server'
 
 export async function GET(request: Request) {
@@ -79,6 +81,28 @@ export async function GET(request: Request) {
         }
 
         // Only show success if we actually stored the token
+        if (tokenSaved) {
+          // Register Gmail → Pub/Sub watch (background — don't block redirect)
+          registerGmailWatch(user.id).catch((e) =>
+            console.error('[callback] registerGmailWatch failed:', e)
+          )
+
+          // Seed inbox with last 50 messages
+          const { data: userRow2 } = await admin
+            .from('users')
+            .select('business_id')
+            .eq('id', user.id)
+            .single()
+
+          if (userRow2?.business_id) {
+            const { decrypt } = await import('@/lib/utils/crypto')
+            const rawToken = decrypt(providerToken!)
+            initialSync(rawToken, userRow2.business_id).catch((e) =>
+              console.error('[callback] initialSync failed:', e)
+            )
+          }
+        }
+
         const redirectUrl = new URL(`${origin}/onboarding`)
         if (tokenSaved) {
           redirectUrl.searchParams.set('gmail_connected', 'true')

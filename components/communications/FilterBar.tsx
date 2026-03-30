@@ -25,6 +25,8 @@ interface FilterBarProps {
   setActiveStatus: (s: string) => void
   priorityOnly: boolean
   setPriorityOnly: (p: boolean) => void
+  mineOnly: boolean
+  setMineOnly: (m: boolean) => void
   searchQuery: string
   setSearchQuery: (q: string) => void
   onCompose: () => void
@@ -34,6 +36,7 @@ export function FilterBar({
   activeChannel, setActiveChannel,
   activeStatus, setActiveStatus,
   priorityOnly, setPriorityOnly,
+  mineOnly, setMineOnly,
   searchQuery, setSearchQuery,
   onCompose,
 }: FilterBarProps) {
@@ -155,6 +158,36 @@ export function FilterBar({
       >
         <Zap size={12} />
         Priority
+      </button>
+
+      {/* ── Mine toggle ── */}
+      <button
+        onClick={() => setMineOnly(!mineOnly)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '5px',
+          padding: '4px 11px',
+          borderRadius: '20px',
+          fontSize: '12px',
+          fontWeight: mineOnly ? 700 : 500,
+          color: mineOnly ? '#2563EB' : '#374151',
+          background: mineOnly ? '#EEF3FE' : '#F3F4F6',
+          border: mineOnly ? '1px solid #BFDBFE' : '1px solid transparent',
+          cursor: 'pointer',
+          whiteSpace: 'nowrap',
+          transition: 'all 0.12s',
+          flexShrink: 0,
+          fontFamily: 'var(--font-dm-sans), sans-serif',
+        }}
+        onMouseEnter={(e) => {
+          if (!mineOnly) e.currentTarget.style.background = '#E5E7EB'
+        }}
+        onMouseLeave={(e) => {
+          if (!mineOnly) e.currentTarget.style.background = '#F3F4F6'
+        }}
+      >
+        👤 Mine
       </button>
 
       {/* Spacer */}

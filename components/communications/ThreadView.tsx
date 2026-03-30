@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import {
   Inbox,
   MoreHorizontal,
@@ -11,6 +11,7 @@ import {
   RefreshCw,
   Send,
   X,
+  Trash2,
 } from 'lucide-react'
 import type { Conversation, ConversationChannel, ThreadMessage } from './mock-data'
 
@@ -19,9 +20,9 @@ import type { Conversation, ConversationChannel, ThreadMessage } from './mock-da
 // ---------------------------------------------------------------------------
 
 const CHANNEL_CONFIG: Record<ConversationChannel, { label: string; bg: string; color: string }> = {
-  gmail: { label: 'Gmail', bg: 'var(--gmail-light)', color: 'var(--gmail)' },
-  instagram: { label: 'Instagram', bg: 'var(--instagram-light)', color: 'var(--instagram)' },
-  facebook: { label: 'Facebook', bg: 'var(--facebook-light)', color: 'var(--facebook)' },
+  gmail: { label: 'Gmail', bg: '#FEE2E2', color: '#DC2626' },
+  instagram: { label: 'Instagram', bg: '#FDF4FF', color: '#9333EA' },
+  facebook: { label: 'Facebook', bg: '#EEF3FE', color: '#2563EB' },
 }
 
 function ChannelBadge({ channel }: { channel: ConversationChannel }) {
@@ -67,18 +68,18 @@ function MessageBubble({ msg }: { msg: ThreadMessage }) {
       <Avatar name={msg.senderName} size={32} />
       <div style={{ maxWidth: '68%', display: 'flex', flexDirection: 'column', alignItems: isOut ? 'flex-end' : 'flex-start', gap: '4px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexDirection: isOut ? 'row-reverse' : 'row' }}>
-          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>{msg.senderName}</span>
-          {!isOut && <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{msg.senderEmail}</span>}
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{msg.timestamp}</span>
+          <span style={{ fontSize: '12px', fontWeight: 600, color: '#1A1A1A' }}>{msg.senderName}</span>
+          {!isOut && <span style={{ fontSize: '11px', color: '#9CA3AF' }}>{msg.senderEmail}</span>}
+          <span style={{ fontSize: '11px', color: '#9CA3AF' }}>{msg.timestamp}</span>
         </div>
         <div
           style={{
             background: isOut ? '#EFF6FF' : '#FFFFFF',
-            border: `1px solid ${isOut ? '#BFDBFE' : 'var(--border-default)'}`,
+            border: `1px solid ${isOut ? '#BFDBFE' : '#E8E8E2'}`,
             borderRadius: isOut ? '12px 2px 12px 12px' : '2px 12px 12px 12px',
             padding: '10px 14px',
             fontSize: '13px',
-            color: 'var(--text-secondary)',
+            color: '#374151',
             lineHeight: 1.6,
             whiteSpace: 'pre-wrap',
             boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
@@ -98,42 +99,41 @@ function MessageBubble({ msg }: { msg: ThreadMessage }) {
 function AIReplyPanel({
   draft,
   onDismiss,
-  onSend,
+  onUseDraft,
 }: {
   draft: string
   onDismiss: () => void
-  onSend: (text: string) => void
+  onUseDraft: (text: string) => void
 }) {
   const [text, setText] = useState(draft)
 
   return (
     <div
       style={{
-        borderTop: '1px solid var(--border-default)',
-        borderLeft: '3px solid var(--ai)',
-        background: 'var(--ai-light)',
+        borderTop: '1px solid #E8E8E2',
+        borderLeft: '3px solid #6366F1',
+        background: '#F5F3FF',
         padding: '14px 16px',
         flexShrink: 0,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ background: 'var(--ai-light)', color: 'var(--ai)', fontSize: '10px', fontWeight: 700, padding: '2px 7px', borderRadius: '20px', border: '1px solid var(--ai-border)', letterSpacing: '0.05em' }}>
-            ✦ AI
+          <span style={{ background: '#EDE9FE', color: '#6366F1', fontSize: '10px', fontWeight: 700, padding: '2px 7px', borderRadius: '20px', border: '1px solid #C4B5FD', letterSpacing: '0.05em' }}>
+            ✦ AI Draft
           </span>
-          <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ai)' }}>Suggested reply</span>
+          <span style={{ fontSize: '13px', fontWeight: 600, color: '#4338CA' }}>Suggested reply</span>
         </div>
         <div style={{ display: 'flex', gap: '6px' }}>
           <button
             onClick={() => setText(draft)}
-            title="Regenerate"
-            style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', color: 'var(--ai)', fontSize: '12px', fontWeight: 500, cursor: 'pointer', padding: '4px 8px', borderRadius: '6px', fontFamily: 'var(--font-dm-sans), sans-serif' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', color: '#6366F1', fontSize: '12px', fontWeight: 500, cursor: 'pointer', padding: '4px 8px', borderRadius: '6px', fontFamily: 'var(--font-dm-sans), sans-serif' }}
           >
             <RefreshCw size={12} /> Regenerate
           </button>
           <button
             onClick={onDismiss}
-            style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 500, cursor: 'pointer', padding: '4px 8px', borderRadius: '6px', fontFamily: 'var(--font-dm-sans), sans-serif' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', color: '#9CA3AF', fontSize: '12px', fontWeight: 500, cursor: 'pointer', padding: '4px 8px', borderRadius: '6px', fontFamily: 'var(--font-dm-sans), sans-serif' }}
           >
             <X size={12} /> Dismiss
           </button>
@@ -143,48 +143,138 @@ function AIReplyPanel({
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
-        rows={4}
+        rows={3}
         style={{
           width: '100%',
           resize: 'vertical',
-          border: '1px solid var(--ai-border)',
+          border: '1px solid #C4B5FD',
           borderRadius: '8px',
           padding: '10px 12px',
           fontSize: '13px',
-          color: 'var(--text-primary)',
+          color: '#1A1A1A',
           background: '#FFFFFF',
           outline: 'none',
           lineHeight: 1.6,
           fontFamily: 'var(--font-dm-sans), sans-serif',
           boxSizing: 'border-box',
         }}
-        onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--ai)'; e.currentTarget.style.boxShadow = '0 0 0 3px var(--ai-light)' }}
-        onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--ai-border)'; e.currentTarget.style.boxShadow = 'none' }}
       />
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
         <button
-          onClick={() => onSend(text)}
+          onClick={() => onUseDraft(text)}
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '8px 16px',
-            background: 'var(--ai)',
-            color: '#FFFFFF',
-            border: 'none',
-            borderRadius: '8px',
-            fontSize: '13px',
-            fontWeight: 600,
-            cursor: 'pointer',
-            fontFamily: 'var(--font-dm-sans), sans-serif',
-            transition: 'opacity 0.15s',
+            display: 'flex', alignItems: 'center', gap: '6px',
+            padding: '7px 16px',
+            background: '#6366F1', color: '#FFFFFF',
+            border: 'none', borderRadius: '8px',
+            fontSize: '13px', fontWeight: 600,
+            cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif',
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9' }}
-          onMouseLeave={(e) => { e.currentTarget.style.opacity = '1' }}
         >
-          <Send size={13} /> Send Reply
+          Use this draft →
         </button>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Reply Composer
+// ---------------------------------------------------------------------------
+
+function ReplyComposer({
+  businessName,
+  onSend,
+}: {
+  businessName: string
+  onSend: (text: string) => void
+}) {
+  const [text, setText] = useState('')
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  function handleSend() {
+    if (!text.trim()) return
+    onSend(text)
+    setText('')
+  }
+
+  // Auto-resize textarea
+  useEffect(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`
+  }, [text])
+
+  return (
+    <div
+      style={{
+        flexShrink: 0,
+        borderTop: '1px solid #E8E8E2',
+        background: '#FFFFFF',
+        padding: '12px 16px',
+      }}
+    >
+      {/* "Replying as" label — non-negotiable per spec */}
+      <p style={{ fontSize: '11px', color: '#9CA3AF', margin: '0 0 8px 0', fontWeight: 500 }}>
+        Replying as <strong style={{ color: '#6B6B6B' }}>{businessName}</strong> · via Gmail
+      </p>
+
+      <textarea
+        ref={textareaRef}
+        id="reply-composer"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="Write a reply…"
+        rows={3}
+        style={{
+          width: '100%',
+          resize: 'none',
+          border: '1px solid #E8E8E2',
+          borderRadius: '8px',
+          padding: '10px 12px',
+          fontSize: '13px',
+          color: '#1A1A1A',
+          background: '#F9F9F6',
+          outline: 'none',
+          lineHeight: 1.6,
+          fontFamily: 'var(--font-dm-sans), sans-serif',
+          boxSizing: 'border-box',
+          transition: 'border-color 0.15s, box-shadow 0.15s',
+        }}
+        onFocus={(e) => {
+          e.currentTarget.style.borderColor = '#2563EB'
+          e.currentTarget.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.1)'
+          e.currentTarget.style.background = '#FFFFFF'
+        }}
+        onBlur={(e) => {
+          e.currentTarget.style.borderColor = '#E8E8E2'
+          e.currentTarget.style.boxShadow = 'none'
+          e.currentTarget.style.background = '#F9F9F6'
+        }}
+        onKeyDown={(e) => {
+          if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') handleSend()
+        }}
+      />
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
+        <span style={{ fontSize: '11px', color: '#BBBBBB' }}>⌘ + Enter to send</span>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            onClick={() => setText('')}
+            style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 14px', background: 'transparent', color: '#6B6B6B', border: '1px solid #E8E8E2', borderRadius: '7px', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif' }}
+          >
+            <Trash2 size={12} /> Discard
+          </button>
+          <button
+            onClick={handleSend}
+            disabled={!text.trim()}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 16px', background: text.trim() ? '#2563EB' : '#E8E8E2', color: text.trim() ? '#FFFFFF' : '#9CA3AF', border: 'none', borderRadius: '7px', fontSize: '13px', fontWeight: 600, cursor: text.trim() ? 'pointer' : 'default', fontFamily: 'var(--font-dm-sans), sans-serif', transition: 'background 0.15s' }}
+          >
+            <Send size={13} /> Send via Gmail
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -200,23 +290,28 @@ interface ThreadViewProps {
   conversation: Conversation | null
   showAIPanel: boolean
   priorityOnly: boolean
+  businessName: string
   onDismissAI: (id: string) => void
   onSendReply: (id: string, text: string) => void
   onMarkUnread: (id: string) => void
 }
 
-export function ThreadView({ conversation, showAIPanel, priorityOnly, onDismissAI, onSendReply, onMarkUnread }: ThreadViewProps) {
+export function ThreadView({ conversation, showAIPanel, priorityOnly, businessName, onDismissAI, onSendReply, onMarkUnread }: ThreadViewProps) {
   const [assignedTo, setAssignedTo] = useState('Unassigned')
   const [showAssignDropdown, setShowAssignDropdown] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
+  const [composerText, setComposerText] = useState('')
+
+  // Keep local composer state available for "Use this draft"
+  const composerRef = useRef<HTMLTextAreaElement | null>(null)
 
   // Empty: priority filter but no results
   if (!conversation && priorityOnly) {
     return (
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', background: 'var(--bg-base)', color: 'var(--text-muted)' }}>
-        <span style={{ fontSize: '28px' }}>⚡</span>
-        <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>No priority messages right now</p>
-        <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>Priority items will appear here when flagged</p>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', background: '#F9F9F6' }}>
+        <span style={{ fontSize: '36px' }}>⚡</span>
+        <p style={{ fontSize: '15px', fontWeight: 700, color: '#1A1A1A', margin: 0 }}>You're all caught up!</p>
+        <p style={{ fontSize: '13px', color: '#9CA3AF', margin: 0 }}>No priority messages right now 🎉</p>
       </div>
     )
   }
@@ -224,10 +319,12 @@ export function ThreadView({ conversation, showAIPanel, priorityOnly, onDismissA
   // Empty: no conversation selected
   if (!conversation) {
     return (
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', background: 'var(--bg-base)', color: 'var(--text-muted)' }}>
-        <Inbox size={36} color="var(--text-disabled)" />
-        <p style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Select a conversation to read</p>
-        <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>Choose a message from the left panel</p>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', background: '#F9F9F6' }}>
+        <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: '#F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '4px' }}>
+          <Inbox size={28} color="#9CA3AF" />
+        </div>
+        <p style={{ fontSize: '15px', fontWeight: 700, color: '#1A1A1A', margin: 0 }}>Select a conversation to read</p>
+        <p style={{ fontSize: '13px', color: '#9CA3AF', margin: 0 }}>Choose a message from the left panel</p>
       </div>
     )
   }
@@ -235,7 +332,7 @@ export function ThreadView({ conversation, showAIPanel, priorityOnly, onDismissA
   const isUnread = conversation.status === 'unread'
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg-surface)' }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#FFFFFF' }}>
       {/* Header */}
       <div
         style={{
@@ -245,13 +342,13 @@ export function ThreadView({ conversation, showAIPanel, priorityOnly, onDismissA
           padding: '0 20px',
           height: '56px',
           minHeight: '56px',
-          borderBottom: '1px solid var(--border-default)',
+          borderBottom: '1px solid #E8E8E2',
           flexShrink: 0,
         }}
       >
         {/* Subject + channel */}
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-          <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: '15px', fontWeight: 700, color: '#1A1A1A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {conversation.subject}
           </span>
           <ChannelBadge channel={conversation.channel} />
@@ -259,18 +356,29 @@ export function ThreadView({ conversation, showAIPanel, priorityOnly, onDismissA
 
         {/* Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-          {/* Assign to */}
+          {/* Assign to — front and centre, prominent */}
           <div style={{ position: 'relative' }}>
             <button
               onClick={() => setShowAssignDropdown(!showAssignDropdown)}
-              style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 10px', border: '1px solid var(--border-default)', borderRadius: '6px', background: 'var(--bg-base)', fontSize: '12px', color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif' }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '6px 12px',
+                border: '1.5px solid #2563EB',
+                borderRadius: '8px',
+                background: '#EEF3FE',
+                fontSize: '12px', fontWeight: 600,
+                color: '#2563EB',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-dm-sans), sans-serif',
+              }}
             >
-              <UserCircle size={13} /> {assignedTo}
+              <UserCircle size={14} />
+              {assignedTo === 'Unassigned' ? 'Assign to…' : assignedTo}
             </button>
             {showAssignDropdown && (
-              <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '4px', background: '#FFF', border: '1px solid var(--border-default)', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 50, minWidth: '140px', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '4px', background: '#FFF', border: '1px solid #E8E8E2', borderRadius: '10px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 50, minWidth: '160px', overflow: 'hidden' }}>
                 {TEAM_MEMBERS.map((m) => (
-                  <button key={m} onClick={() => { setAssignedTo(m); setShowAssignDropdown(false) }} style={{ display: 'block', width: '100%', padding: '8px 14px', textAlign: 'left', background: m === assignedTo ? 'var(--accent-light)' : '#FFF', color: m === assignedTo ? 'var(--accent)' : 'var(--text-primary)', fontSize: '13px', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif', fontWeight: m === assignedTo ? 600 : 400 }}>
+                  <button key={m} onClick={() => { setAssignedTo(m); setShowAssignDropdown(false) }} style={{ display: 'block', width: '100%', padding: '9px 14px', textAlign: 'left', background: m === assignedTo ? '#EEF3FE' : '#FFF', color: m === assignedTo ? '#2563EB' : '#1A1A1A', fontSize: '13px', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif', fontWeight: m === assignedTo ? 600 : 400 }}>
                     {m}
                   </button>
                 ))}
@@ -279,17 +387,14 @@ export function ThreadView({ conversation, showAIPanel, priorityOnly, onDismissA
           </div>
 
           {/* Label */}
-          <button
-            style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 10px', border: '1px solid var(--border-default)', borderRadius: '6px', background: 'var(--bg-base)', fontSize: '12px', color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif' }}
-          >
+          <button style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 10px', border: '1px solid #E8E8E2', borderRadius: '6px', background: '#F9F9F6', fontSize: '12px', color: '#6B6B6B', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif' }}>
             <Tag size={13} /> Label
           </button>
 
           {/* Mark read/unread */}
           <button
             onClick={() => onMarkUnread(conversation.id)}
-            title={isUnread ? 'Mark as read' : 'Mark as unread'}
-            style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 10px', border: '1px solid var(--border-default)', borderRadius: '6px', background: 'var(--bg-base)', fontSize: '12px', color: 'var(--text-secondary)', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 10px', border: '1px solid #E8E8E2', borderRadius: '6px', background: '#F9F9F6', fontSize: '12px', color: '#6B6B6B', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif' }}
           >
             {isUnread ? <MailOpen size={13} /> : <Mail size={13} />}
             {isUnread ? 'Read' : 'Unread'}
@@ -299,14 +404,14 @@ export function ThreadView({ conversation, showAIPanel, priorityOnly, onDismissA
           <div style={{ position: 'relative' }}>
             <button
               onClick={() => setShowMoreMenu(!showMoreMenu)}
-              style={{ display: 'flex', alignItems: 'center', padding: '5px 8px', border: '1px solid var(--border-default)', borderRadius: '6px', background: 'var(--bg-base)', cursor: 'pointer' }}
+              style={{ display: 'flex', alignItems: 'center', padding: '5px 8px', border: '1px solid #E8E8E2', borderRadius: '6px', background: '#F9F9F6', cursor: 'pointer' }}
             >
-              <MoreHorizontal size={15} color="var(--text-muted)" />
+              <MoreHorizontal size={15} color="#9CA3AF" />
             </button>
             {showMoreMenu && (
-              <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '4px', background: '#FFF', border: '1px solid var(--border-default)', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 50, minWidth: '140px', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '4px', background: '#FFF', border: '1px solid #E8E8E2', borderRadius: '10px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 50, minWidth: '140px', overflow: 'hidden' }}>
                 {['Archive', 'Move to folder', 'Delete'].map((action) => (
-                  <button key={action} onClick={() => setShowMoreMenu(false)} style={{ display: 'block', width: '100%', padding: '8px 14px', textAlign: 'left', background: '#FFF', color: action === 'Delete' ? 'var(--red)' : 'var(--text-primary)', fontSize: '13px', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif' }}>
+                  <button key={action} onClick={() => setShowMoreMenu(false)} style={{ display: 'block', width: '100%', padding: '9px 14px', textAlign: 'left', background: '#FFF', color: action === 'Delete' ? '#DC2626' : '#1A1A1A', fontSize: '13px', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif' }}>
                     {action}
                   </button>
                 ))}
@@ -316,21 +421,133 @@ export function ThreadView({ conversation, showAIPanel, priorityOnly, onDismissA
         </div>
       </div>
 
-      {/* Message thread - scrollable */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', background: 'var(--bg-base)' }}>
-        {conversation.messages.map((msg) => (
-          <MessageBubble key={msg.id} msg={msg} />
-        ))}
+      {/* Sender info bar */}
+      <div style={{ padding: '10px 20px', borderBottom: '1px solid #E8E8E2', background: '#FAFAFA', display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+        <Avatar name={conversation.sender.name} size={32} />
+        <div>
+          <span style={{ fontSize: '13px', fontWeight: 600, color: '#1A1A1A' }}>{conversation.sender.name}</span>
+          <span style={{ fontSize: '12px', color: '#9CA3AF', marginLeft: '6px' }}>&lt;{conversation.sender.email}&gt;</span>
+        </div>
+        <span style={{ marginLeft: 'auto', fontSize: '11px', color: '#9CA3AF' }}>via Gmail · {conversation.timestamp}</span>
       </div>
 
-      {/* AI Reply Panel */}
+      {/* Message thread - scrollable */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', background: '#F9F9F6' }}>
+        {conversation.messages.length === 0 ? (
+          <div style={{ textAlign: 'center', color: '#9CA3AF', fontSize: '13px', marginTop: '40px' }}>
+            No messages in this thread yet.
+          </div>
+        ) : (
+          conversation.messages.map((msg) => (
+            <MessageBubble key={msg.id} msg={msg} />
+          ))
+        )}
+      </div>
+
+      {/* AI Reply Panel — "Use this draft" copies to composer */}
       {showAIPanel && conversation.aiSuggestedReply && (
         <AIReplyPanel
           draft={conversation.aiSuggestedReply}
           onDismiss={() => onDismissAI(conversation.id)}
-          onSend={(text) => onSendReply(conversation.id, text)}
+          onUseDraft={(text) => {
+            setComposerText(text)
+            onDismissAI(conversation.id)
+            setTimeout(() => composerRef.current?.focus(), 50)
+          }}
         />
       )}
+
+      {/* Reply Composer — always visible */}
+      <ReplyComposerControlled
+        businessName={businessName}
+        value={composerText}
+        onChange={setComposerText}
+        composerRef={composerRef}
+        onSend={(text) => {
+          onSendReply(conversation.id, text)
+          setComposerText('')
+        }}
+      />
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Controlled reply composer (receives value from parent for AI draft fill)
+// ---------------------------------------------------------------------------
+function ReplyComposerControlled({
+  businessName,
+  value,
+  onChange,
+  composerRef,
+  onSend,
+}: {
+  businessName: string
+  value: string
+  onChange: (v: string) => void
+  composerRef: React.RefObject<HTMLTextAreaElement | null>
+  onSend: (text: string) => void
+}) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`
+  }, [value])
+
+  // Merge external ref
+  useEffect(() => {
+    if (composerRef && 'current' in composerRef) {
+      (composerRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = textareaRef.current
+    }
+  })
+
+  return (
+    <div style={{ flexShrink: 0, borderTop: '1px solid #E8E8E2', background: '#FFFFFF', padding: '12px 16px' }}>
+      <p style={{ fontSize: '11px', color: '#9CA3AF', margin: '0 0 8px 0', fontWeight: 500 }}>
+        Replying as <strong style={{ color: '#6B6B6B' }}>{businessName}</strong> · via Gmail
+      </p>
+
+      <textarea
+        ref={textareaRef}
+        id="reply-composer"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Write a reply…"
+        rows={3}
+        style={{
+          width: '100%', resize: 'none',
+          border: '1px solid #E8E8E2', borderRadius: '8px',
+          padding: '10px 12px', fontSize: '13px', color: '#1A1A1A',
+          background: '#F9F9F6', outline: 'none', lineHeight: 1.6,
+          fontFamily: 'var(--font-dm-sans), sans-serif',
+          boxSizing: 'border-box', transition: 'border-color 0.15s, box-shadow 0.15s',
+        }}
+        onFocus={(e) => { e.currentTarget.style.borderColor = '#2563EB'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.1)'; e.currentTarget.style.background = '#FFFFFF' }}
+        onBlur={(e) => { e.currentTarget.style.borderColor = '#E8E8E2'; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.background = '#F9F9F6' }}
+        onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { onSend(value) } }}
+      />
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
+        <span style={{ fontSize: '11px', color: '#BBBBBB' }}>⌘ + Enter to send</span>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            onClick={() => onChange('')}
+            style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 14px', background: 'transparent', color: '#6B6B6B', border: '1px solid #E8E8E2', borderRadius: '7px', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif' }}
+          >
+            <Trash2 size={12} /> Discard
+          </button>
+          <button
+            onClick={() => { if (value.trim()) onSend(value) }}
+            disabled={!value.trim()}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 16px', background: value.trim() ? '#2563EB' : '#E8E8E2', color: value.trim() ? '#FFFFFF' : '#9CA3AF', border: 'none', borderRadius: '7px', fontSize: '13px', fontWeight: 600, cursor: value.trim() ? 'pointer' : 'default', fontFamily: 'var(--font-dm-sans), sans-serif', transition: 'background 0.15s' }}
+          >
+            <Send size={13} /> Send via Gmail
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
