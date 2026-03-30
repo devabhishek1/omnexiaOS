@@ -1,3 +1,10 @@
+> **NOTE:** next-intl is already fully configured and working.
+> `scripts/translate.mjs` auto-translate script exists (run: `npm run translate`).
+> `messages/en.json` base structure exists. All onboarding strings are already
+> translated across EN/FR/DE/ES/IT/NL. Phase 14 work is ONLY: add dashboard
+> strings to `messages/en.json`, run `npm run translate`, wire `useTranslations()`
+> into dashboard components. Do not re-setup next-intl from scratch.
+
 # Phase 14 — i18n (All 6 Languages + VAT Logic)
 **MILESTONE PHASE** — pause and await CONTINUE after completion.
 

@@ -1,3 +1,9 @@
+> **NOTE:** Gmail OAuth token storage is already partially implemented.
+> The onboarding flow stores tokens via Supabase admin client to bypass RLS.
+> Check `lib/supabase/` for the admin client pattern before implementing
+> `gmail_tokens` storage. The `?gmail_connected=true` redirect param is already
+> wired in `app/api/auth/callback/google/route.ts`.
+
 # Phase 07 — Gmail API Integration
 **MILESTONE PHASE** — pause and await CONTINUE after completion.
 
