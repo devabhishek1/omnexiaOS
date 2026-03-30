@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { encrypt } from '@/lib/utils/crypto'
 import { NextResponse } from 'next/server'
 
 export async function GET(request: Request) {
@@ -47,14 +48,22 @@ export async function GET(request: Request) {
           // Calculate expiry — Google access tokens last 1 hour
           const expiresAt = new Date(Date.now() + 3600 * 1000).toISOString()
 
+          // Get business_id so the edge function can join tokens → business
+          const { data: userRow } = await admin
+            .from('users')
+            .select('business_id')
+            .eq('id', user.id)
+            .single()
+
           const { error: tokenError } = await admin
             .from('gmail_tokens')
             .upsert(
               {
                 user_id: user.id,
+                business_id: userRow?.business_id ?? null,
                 email: user.email!,
-                access_token: providerToken,
-                refresh_token: providerRefreshToken ?? '',
+                access_token: encrypt(providerToken),
+                refresh_token: encrypt(providerRefreshToken ?? ''),
                 expires_at: expiresAt,
               },
               { onConflict: 'user_id' }
