@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import React, { useState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { CheckCircle, Mail } from 'lucide-react'
 import { OnboardingData } from '../types'
 import { useT } from '../LocaleContext'
@@ -15,19 +15,27 @@ interface Props {
 export default function Step6Gmail({ data, onChange, onAdvance }: Props) {
   const [connecting, setConnecting] = useState(false)
   const searchParams = useSearchParams()
-  const router = useRouter()
+  const processed = useRef(false)
   const t = useT()
   const s = t.s6
 
   // Detect successful OAuth return via URL search params set by the callback route.
+  // Use window.history.replaceState (not router.replace) to strip query params without
+  // triggering a Next.js RSC fetch — router.replace causes a server round-trip that
+  // fails and retries in an infinite loop.
   useEffect(() => {
+    if (processed.current) return
     const gmailConnected = searchParams.get('gmail_connected')
     const gmailEmail = searchParams.get('gmail_email')
     if (gmailConnected === 'true') {
-      router.replace('/onboarding', { scroll: false })
+      processed.current = true
+      window.history.replaceState({}, '', '/onboarding')
       onChange({ gmailConnected: true, gmailEmail: gmailEmail ?? undefined })
+    } else if (gmailConnected === 'false') {
+      // Token save failed — strip params, keep button enabled so user can retry
+      window.history.replaceState({}, '', '/onboarding')
     }
-  }, [searchParams, onChange, router])
+  }, [searchParams, onChange])
 
   // Auto-advance 1.5s after connected state is set
   useEffect(() => {
