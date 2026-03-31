@@ -9,6 +9,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getValidAccessToken } from '@/lib/gmail/client'
 import { fetchMessagesSinceHistory, upsertMessage } from '@/lib/gmail/sync'
 import { parseGmailMessage } from '@/lib/gmail/parse'
+import { encrypt } from '@/lib/utils/crypto'
+import { flagUrgency } from '@/lib/mistral/urgency'
 
 export async function POST(request: Request) {
   try {
@@ -59,6 +61,28 @@ export async function POST(request: Request) {
       try {
         const parsed = parseGmailMessage(msg)
         await upsertMessage(parsed, businessId)
+
+        // Run urgency flagging in background — don't await so webhook stays fast
+        if (parsed.subject || parsed.bodyPreview) {
+          const threadId = parsed.threadId as string | undefined
+          flagUrgency(parsed.subject ?? '', parsed.bodyPreview ?? '').then(async (result) => {
+            if (!result.urgent) return
+            // Mark conversation as priority via threadId
+            if (threadId) {
+              await admin.from('conversations').update({ priority: true }).eq('thread_id', threadId).eq('business_id', businessId)
+            }
+            // Insert in-app notification
+            await admin.from('notifications').insert({
+              business_id: businessId,
+              user_id: token.user_id,
+              type: 'message',
+              title: encrypt(`Urgent: ${parsed.subject ?? 'New message'}`),
+              body: encrypt(result.reason),
+              link: '/communications',
+              is_read: false,
+            })
+          }).catch((e) => console.error('[webhook] urgency flag error:', e))
+        }
       } catch (e) {
         console.error('[webhook] error upserting message:', e)
       }

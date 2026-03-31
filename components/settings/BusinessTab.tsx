@@ -30,6 +30,7 @@ type FormState = {
   currency: string
   date_format: string
   logo_url: string
+  ai_context: string
 }
 
 export default function BusinessTab() {
@@ -43,6 +44,7 @@ export default function BusinessTab() {
     currency: 'EUR',
     date_format: 'DD/MM/YYYY',
     logo_url: '',
+    ai_context: '',
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -66,6 +68,7 @@ export default function BusinessTab() {
           currency: (biz as any).currency ?? 'EUR',
           date_format: (biz as any).date_format ?? 'DD/MM/YYYY',
           logo_url: biz.logo_url ?? '',
+          ai_context: (biz as any).ai_context ?? '',
         })
       }
       setLoading(false)
@@ -104,6 +107,7 @@ export default function BusinessTab() {
       currency: form.currency,
       date_format: form.date_format,
       logo_url: form.logo_url || null,
+      ai_context: form.ai_context || null,
     }).eq('id', businessId)
     setSaving(false)
     if (error) { toast.error('Failed to save changes'); return }
@@ -192,6 +196,20 @@ export default function BusinessTab() {
         <select style={selectStyle} value={form.date_format} onChange={e => setForm(f => ({ ...f, date_format: e.target.value }))}>
           {DATE_FORMATS.map(d => <option key={d} value={d}>{d}</option>)}
         </select>
+      </div>
+
+      {/* AI Context */}
+      <div>
+        <label style={labelStyle}>
+          AI context{' '}
+          <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: '11px' }}>— used by Mistral to personalise replies and digests</span>
+        </label>
+        <textarea
+          style={{ ...inputStyle, minHeight: '90px', resize: 'vertical' }}
+          value={form.ai_context}
+          onChange={e => setForm(f => ({ ...f, ai_context: e.target.value }))}
+          placeholder="e.g. Business hours: Mon–Fri 9am–6pm. Services: web design, branding. Preferred tone: professional and friendly."
+        />
       </div>
 
       <div style={{ paddingTop: '4px' }}>
