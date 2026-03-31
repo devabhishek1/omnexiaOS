@@ -4,6 +4,7 @@ import type { User, Business } from '@/types/database'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Topbar } from '@/components/layout/Topbar'
 import { DashboardProvider } from '@/components/layout/DashboardContext'
+import { Toaster } from 'sonner'
 
 export default async function DashboardLayout({
   children,
@@ -55,6 +56,7 @@ export default async function DashboardLayout({
           <main className="flex-1 p-[28px]">{children}</main>
         </div>
       </div>
+      <Toaster position="bottom-right" richColors />
     </DashboardProvider>
   )
 }

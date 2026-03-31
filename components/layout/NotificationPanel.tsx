@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Notification } from '@/types/database'
+import { toast } from 'sonner'
 import {
   Bell,
   Mail,
@@ -14,7 +15,6 @@ import {
 
 interface NotificationPanelProps {
   userId: string
-  businessId: string
   onClose: () => void
 }
 
@@ -38,7 +38,6 @@ function timeAgo(dateStr: string): string {
 
 export function NotificationPanel({
   userId,
-  businessId,
   onClose,
 }: NotificationPanelProps) {
   const router = useRouter()
@@ -63,19 +62,16 @@ export function NotificationPanel({
     return () => document.removeEventListener('mousedown', handleClick)
   }, [onClose])
 
-  // Fetch existing notifications
+  // Fetch existing notifications (via server route that decrypts)
   const fetchNotifs = useCallback(async () => {
     setLoading(true)
-    const { data } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('business_id', businessId)
-      .order('created_at', { ascending: false })
-      .limit(25)
-    setNotifications((data as Notification[]) ?? [])
+    const res = await fetch('/api/notifications')
+    if (res.ok) {
+      const { notifications: data } = await res.json()
+      setNotifications((data as Notification[]) ?? [])
+    }
     setLoading(false)
-  }, [supabase, userId, businessId])
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -98,7 +94,14 @@ export function NotificationPanel({
           filter: `user_id=eq.${userId}`,
         },
         (payload) => {
-          setNotifications((prev) => [payload.new as Notification, ...prev])
+          fetchNotifs()
+          // Show toast for the new notification
+          const n = payload.new as Partial<Notification>
+          if (n?.title) {
+            toast(n.title, {
+              description: n.body ?? undefined,
+            })
+          }
         }
       )
       .subscribe()
