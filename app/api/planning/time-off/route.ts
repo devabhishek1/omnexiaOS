@@ -43,7 +43,7 @@ export async function PATCH(request: Request) {
         const resend = getResend()
         const dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL}/planning`
         await resend.emails.send({
-          from: 'Omnexia <notifications@omnexia.app>',
+          from: 'Omnexia <notifications@omnexia.eu>',
           to: emp.email,
           subject: `Your time-off request has been ${status}`,
           html: timeOffResponseTemplate({

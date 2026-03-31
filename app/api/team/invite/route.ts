@@ -52,7 +52,7 @@ export async function POST(request: Request) {
   try {
     const resend = getResend()
     await resend.emails.send({
-      from: 'Omnexia <invites@omnexia.app>',
+      from: 'Omnexia <invites@omnexia.eu>',
       to: email,
       subject: `You've been invited to join ${businessName} on Omnexia`,
       html: teamInviteTemplate({ businessName, inviterName, inviteUrl }),

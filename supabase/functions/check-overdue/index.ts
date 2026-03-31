@@ -10,7 +10,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!
 const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const resendApiKey = Deno.env.get('RESEND_API_KEY')!
-const appUrl = Deno.env.get('NEXT_PUBLIC_APP_URL') ?? 'https://omnexia.app'
+const appUrl = Deno.env.get('NEXT_PUBLIC_APP_URL') ?? 'https://omnexia.eu'
 
 const supabase = createClient(supabaseUrl, serviceKey)
 
@@ -64,7 +64,7 @@ async function sendResendEmail(to: string, subject: string, html: string): Promi
       'Authorization': `Bearer ${resendApiKey}`,
     },
     body: JSON.stringify({
-      from: 'Omnexia <notifications@omnexia.app>',
+      from: 'Omnexia <notifications@omnexia.eu>',
       to,
       subject,
       html,
