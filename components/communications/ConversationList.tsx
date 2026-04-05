@@ -220,20 +220,50 @@ function ConversationItem({
 }
 
 // ---------------------------------------------------------------------------
+// Skeleton row for loading state
+// ---------------------------------------------------------------------------
+
+function ConversationSkeleton({ width }: { width: number }) {
+  const rows = [200, 160, 240, 180, 210, 170, 230]
+  return (
+    <div style={{ width: `${width}px`, flexShrink: 0, borderRight: '1px solid var(--border-default)', overflowY: 'hidden', background: 'var(--bg-surface)' }}>
+      <style>{`@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}`}</style>
+      {rows.map((w, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '12px 16px', borderBottom: '1px solid var(--border-default)' }}>
+          <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(90deg,#F0F0EE 25%,#E8E8E5 50%,#F0F0EE 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.4s infinite', flexShrink: 0 }} />
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '7px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <div style={{ width: 100, height: 11, borderRadius: 5, background: 'linear-gradient(90deg,#F0F0EE 25%,#E8E8E5 50%,#F0F0EE 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.4s infinite' }} />
+              <div style={{ width: 36, height: 9, borderRadius: 5, background: 'linear-gradient(90deg,#F0F0EE 25%,#E8E8E5 50%,#F0F0EE 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.4s infinite' }} />
+            </div>
+            <div style={{ width: w, height: 10, borderRadius: 5, background: 'linear-gradient(90deg,#F0F0EE 25%,#E8E8E5 50%,#F0F0EE 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.4s infinite' }} />
+            <div style={{ width: w - 40, height: 9, borderRadius: 5, background: 'linear-gradient(90deg,#F0F0EE 25%,#E8E8E5 50%,#F0F0EE 75%)', backgroundSize: '200% 100%', animation: `shimmer ${1.4 + i * 0.05}s infinite` }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Main ConversationList
 // ---------------------------------------------------------------------------
 
 interface ConversationListProps {
   conversations: Conversation[]
   allEmpty: boolean
+  loading?: boolean
   selectedId: string | null
   onSelect: (id: string) => void
   onGmailConnected?: (email: string) => void
   width?: number
 }
 
-export function ConversationList({ conversations, allEmpty, selectedId, onSelect, onGmailConnected, width = 320 }: ConversationListProps) {
+export function ConversationList({ conversations, allEmpty, loading, selectedId, onSelect, onGmailConnected, width = 320 }: ConversationListProps) {
   const t = useTranslations('communications')
+  if (loading) {
+    return <ConversationSkeleton width={width} />
+  }
   if (allEmpty) {
     return (
       <div

@@ -47,6 +47,7 @@ export default function CommunicationsPage() {
 
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [loading, setLoading] = useState(true)
+  const [messagesLoading, setMessagesLoading] = useState(false)
   const [businessName, setBusinessName] = useState('Your Business')
   const [currentUserEmail, setCurrentUserEmail] = useState('')
 
@@ -146,12 +147,13 @@ export default function CommunicationsPage() {
 
   const loadMessages = useCallback(async (conversationId: string) => {
     const res = await fetch(`/api/gmail/messages?conversationId=${conversationId}`)
-    if (!res.ok) return
+    if (!res.ok) { setMessagesLoading(false); return }
     const { messages } = await res.json()
-    if (!messages) return
+    if (!messages) { setMessagesLoading(false); return }
     setConversations((prev) =>
       prev.map((c) => c.id === conversationId ? { ...c, messages } : c)
     )
+    setMessagesLoading(false)
   }, [])
 
   // ---------------------------------------------------------------------------
@@ -230,6 +232,7 @@ export default function CommunicationsPage() {
 
   async function handleSelect(id: string) {
     setSelectedId(id)
+    setMessagesLoading(true)
     await supabase.from('conversations').update({ status: 'read' }).eq('id', id)
     setConversations((prev) =>
       prev.map((c) => c.id === id && c.status === 'unread' ? { ...c, status: 'read' } : c)
@@ -317,51 +320,47 @@ export default function CommunicationsPage() {
           syncing={syncing}
         />
 
-        {loading ? (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ color: '#9CA3AF', fontSize: '13px' }}>{t('syncingInbox')}</span>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-            <ConversationList
-              conversations={filtered}
-              allEmpty={conversations.length === 0}
-              selectedId={selectedId}
-              onSelect={handleSelect}
-              onGmailConnected={handleGmailConnected}
-              width={listWidth}
-            />
-            {/* Drag handle */}
-            <div
-              onMouseDown={(e) => {
-                dragging.current = true
-                startX.current = e.clientX
-                startWidth.current = listWidth
-                document.body.style.cursor = 'col-resize'
-                document.body.style.userSelect = 'none'
-              }}
-              style={{
-                width: '4px',
-                flexShrink: 0,
-                background: 'var(--border-default)',
-                cursor: 'col-resize',
-                transition: 'background 0.1s',
-              }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--omnexia-accent)' }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--border-default)' }}
-            />
-            <ThreadView
-              conversation={selectedConversation}
-              showAIPanel={showAIPanel}
-              priorityOnly={priorityOnly}
-              businessName={businessName}
-              currentUserEmail={currentUserEmail}
-              onDismissAI={handleDismissAI}
-              onSendReply={handleSendReply}
-              onMarkUnread={handleMarkUnread}
-            />
-          </div>
-        )}
+        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+          <ConversationList
+            conversations={filtered}
+            allEmpty={conversations.length === 0}
+            loading={loading}
+            selectedId={selectedId}
+            onSelect={handleSelect}
+            onGmailConnected={handleGmailConnected}
+            width={listWidth}
+          />
+          {/* Drag handle */}
+          <div
+            onMouseDown={(e) => {
+              dragging.current = true
+              startX.current = e.clientX
+              startWidth.current = listWidth
+              document.body.style.cursor = 'col-resize'
+              document.body.style.userSelect = 'none'
+            }}
+            style={{
+              width: '4px',
+              flexShrink: 0,
+              background: 'var(--border-default)',
+              cursor: 'col-resize',
+              transition: 'background 0.1s',
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--omnexia-accent)' }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--border-default)' }}
+          />
+          <ThreadView
+            conversation={selectedConversation}
+            showAIPanel={showAIPanel}
+            priorityOnly={priorityOnly}
+            businessName={businessName}
+            currentUserEmail={currentUserEmail}
+            messagesLoading={messagesLoading}
+            onDismissAI={handleDismissAI}
+            onSendReply={handleSendReply}
+            onMarkUnread={handleMarkUnread}
+          />
+        </div>
       </div>
 
       {composeOpen && <ComposeModal onClose={() => setComposeOpen(false)} onSent={loadConversations} />}

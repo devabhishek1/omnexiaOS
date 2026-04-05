@@ -97,6 +97,63 @@ function MessageBody({ text }: { text: string }) {
 }
 
 // ---------------------------------------------------------------------------
+// Skeleton components
+// ---------------------------------------------------------------------------
+
+function SkeletonBlock({ width, height, radius = 6, style }: { width: string | number; height: string | number; radius?: number; style?: React.CSSProperties }) {
+  return (
+    <div style={{
+      width, height, borderRadius: radius,
+      background: 'linear-gradient(90deg, #F0F0EE 25%, #E8E8E5 50%, #F0F0EE 75%)',
+      backgroundSize: '200% 100%',
+      animation: 'shimmer 1.4s infinite',
+      flexShrink: 0,
+      ...style,
+    }} />
+  )
+}
+
+function ThreadSkeleton() {
+  return (
+    <>
+      <style>{`@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }`}</style>
+      {/* Inbound bubble */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', marginBottom: '16px', paddingRight: '60px' }}>
+        <SkeletonBlock width={28} height={28} radius={14} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', maxWidth: '60%' }}>
+          <SkeletonBlock width={80} height={10} />
+          <SkeletonBlock width={220} height={52} radius={12} />
+          <SkeletonBlock width={50} height={8} />
+        </div>
+      </div>
+      {/* Outbound bubble */}
+      <div style={{ display: 'flex', flexDirection: 'row-reverse', alignItems: 'flex-end', gap: '8px', marginBottom: '16px', paddingLeft: '60px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '5px', maxWidth: '55%' }}>
+          <SkeletonBlock width={160} height={40} radius={12} />
+          <SkeletonBlock width={50} height={8} />
+        </div>
+      </div>
+      {/* Inbound bubble 2 */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', marginBottom: '16px', paddingRight: '60px' }}>
+        <SkeletonBlock width={28} height={28} radius={14} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', maxWidth: '65%' }}>
+          <SkeletonBlock width={80} height={10} />
+          <SkeletonBlock width={280} height={72} radius={12} />
+          <SkeletonBlock width={50} height={8} />
+        </div>
+      </div>
+      {/* Outbound bubble 2 */}
+      <div style={{ display: 'flex', flexDirection: 'row-reverse', alignItems: 'flex-end', gap: '8px', marginBottom: '16px', paddingLeft: '60px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '5px', maxWidth: '50%' }}>
+          <SkeletonBlock width={190} height={36} radius={12} />
+          <SkeletonBlock width={50} height={8} />
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Image lightbox — fullscreen overlay, closes on backdrop click or Escape
 // ---------------------------------------------------------------------------
 
@@ -437,12 +494,13 @@ interface ThreadViewProps {
   priorityOnly: boolean
   businessName: string
   currentUserEmail: string
+  messagesLoading: boolean
   onDismissAI: (id: string) => void
   onSendReply: (id: string, text: string, files?: File[]) => void
   onMarkUnread: (id: string) => void
 }
 
-export function ThreadView({ conversation, showAIPanel, priorityOnly, businessName, currentUserEmail, onDismissAI, onSendReply, onMarkUnread }: ThreadViewProps) {
+export function ThreadView({ conversation, showAIPanel, priorityOnly, businessName, currentUserEmail, messagesLoading, onDismissAI, onSendReply, onMarkUnread }: ThreadViewProps) {
   const t = useTranslations('communications')
   const [assignedTo, setAssignedTo] = useState('Unassigned')
   const [showAssignDropdown, setShowAssignDropdown] = useState(false)
@@ -598,10 +656,10 @@ export function ThreadView({ conversation, showAIPanel, priorityOnly, businessNa
 
       {/* Message thread - scrollable */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', background: '#F0F4F8' }}>
-        {conversation.messages.length === 0 ? (
-          <div style={{ textAlign: 'center', color: '#9CA3AF', fontSize: '13px', marginTop: '40px' }}>
-            No messages in this thread yet.
-          </div>
+        {messagesLoading && conversation.messages.length === 0 ? (
+          <ThreadSkeleton />
+        ) : conversation.messages.length === 0 ? (
+          <ThreadSkeleton />
         ) : (
           conversation.messages.map((msg) => (
             <MessageBubble key={msg.id} msg={msg} />
