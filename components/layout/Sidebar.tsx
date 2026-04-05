@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import {
   LayoutDashboard,
   Inbox,
@@ -15,18 +16,18 @@ import type { User, Business } from '@/types/database'
 
 interface NavItem {
   href: string
-  label: string
+  labelKey: string
   icon: React.ElementType
   badge?: number
 }
 
 const navItems: NavItem[] = [
-  { href: '/overview', label: 'Overview', icon: LayoutDashboard },
-  { href: '/communications', label: 'Communications', icon: Inbox },
-  { href: '/finance', label: 'Finance', icon: Receipt },
-  { href: '/planning', label: 'Planning', icon: Calendar },
-  { href: '/team', label: 'Team & Roles', icon: Users },
-  { href: '/settings', label: 'Settings', icon: Settings },
+  { href: '/overview', labelKey: 'overview', icon: LayoutDashboard },
+  { href: '/communications', labelKey: 'communications', icon: Inbox },
+  { href: '/finance', labelKey: 'finance', icon: Receipt },
+  { href: '/planning', labelKey: 'planning', icon: Calendar },
+  { href: '/team', labelKey: 'team', icon: Users },
+  { href: '/settings', labelKey: 'settings', icon: Settings },
 ]
 
 function getInitials(name: string | null) {
@@ -46,6 +47,7 @@ interface SidebarProps {
 
 export function Sidebar({ user, business }: SidebarProps) {
   const pathname = usePathname()
+  const t = useTranslations('nav')
 
   const isActive = (href: string) => {
     const segment = pathname.split('/').filter(Boolean)[0]
@@ -226,7 +228,7 @@ export function Sidebar({ user, business }: SidebarProps) {
                     }}
                   >
                     <Icon size={20} strokeWidth={active ? 2 : 1.75} />
-                    <span className="sidebar-label flex-1">{item.label}</span>
+                    <span className="sidebar-label flex-1">{t(item.labelKey)}</span>
                     {item.badge && item.badge > 0 && (
                       <span
                         style={{

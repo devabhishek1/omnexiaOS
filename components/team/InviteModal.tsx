@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { X } from 'lucide-react'
 
 const MODULES = ['communications', 'finance', 'planning', 'team'] as const
@@ -21,6 +22,8 @@ const ROLE_DEFAULTS: Record<string, Record<string, boolean>> = {
 }
 
 export default function InviteModal({ open, onClose, onInvite }: Props) {
+  const t = useTranslations('team')
+  const tc = useTranslations('common')
   const [email, setEmail] = useState('')
   const [role, setRole] = useState('employee')
   const [moduleAccess, setModuleAccess] = useState<Record<string, boolean>>(DEFAULT_ACCESS)
@@ -52,18 +55,18 @@ export default function InviteModal({ open, onClose, onInvite }: Props) {
     <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
       <div style={{ backgroundColor: 'var(--bg-surface)', borderRadius: '16px', width: '100%', maxWidth: '480px', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
-          <h2 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Invite Employee</h2>
+          <h2 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>{t('invite')}</h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}><X size={18} color="var(--text-muted)" /></button>
         </div>
 
         <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
-            <label style={labelStyle}>Email address</label>
+            <label style={labelStyle}>{t('inviteEmail')}</label>
             <input value={email} onChange={e => setEmail(e.target.value)} placeholder="colleague@company.com" type="email" style={inputStyle} />
           </div>
 
           <div>
-            <label style={labelStyle}>Role</label>
+            <label style={labelStyle}>{t('role')}</label>
             <select value={role} onChange={e => handleRoleChange(e.target.value)} style={inputStyle}>
               {['admin', 'manager', 'employee', 'accountant'].map(r => (
                 <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
@@ -72,7 +75,7 @@ export default function InviteModal({ open, onClose, onInvite }: Props) {
           </div>
 
           <div>
-            <label style={{ ...labelStyle, marginBottom: '8px' }}>Module access</label>
+            <label style={{ ...labelStyle, marginBottom: '8px' }}>{t('moduleAccess')}</label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {MODULES.map(mod => (
                 <label key={mod} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
@@ -105,9 +108,9 @@ export default function InviteModal({ open, onClose, onInvite }: Props) {
         </div>
 
         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', padding: '16px 24px', borderTop: '1px solid var(--border)' }}>
-          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--border)', background: 'none', fontSize: '13px', cursor: 'pointer', color: 'var(--text-secondary)' }}>Cancel</button>
+          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--border)', background: 'none', fontSize: '13px', cursor: 'pointer', color: 'var(--text-secondary)' }}>{tc('cancel')}</button>
           <button onClick={handleSend} disabled={sending} style={{ padding: '8px 20px', borderRadius: '8px', backgroundColor: sending ? 'var(--border-strong)' : 'var(--omnexia-accent)', color: '#fff', border: 'none', fontSize: '13px', fontWeight: 600, cursor: sending ? 'not-allowed' : 'pointer' }}>
-            {sending ? 'Sending…' : 'Send Invite'}
+            {sending ? t('inviteSending') : t('inviteSend')}
           </button>
         </div>
       </div>

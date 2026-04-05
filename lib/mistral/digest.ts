@@ -29,13 +29,15 @@ Write a daily digest in ${language} for the business owner.
 Keep it to 4-6 sentences. Be direct and actionable.
 Highlight: urgent messages, overdue payments, complaints, time-sensitive requests.
 
+CRITICAL: Write in plain text only. No markdown. No asterisks. No hashtags. No bold or italic formatting. No bullet point symbols. Write natural, flowing professional sentences only.
+
 Business context:
 ${profile}
 
 Messages from the last 24 hours:
 ${msgList}
 
-Format: Start with total count, then key highlights, then 1-2 recommended actions.`
+Format: Start with the total message count as a plain sentence, then key highlights as plain sentences, then 1-2 recommended actions as plain sentences.`
 
   return mistralChat({
     model: 'mistral-small-latest',

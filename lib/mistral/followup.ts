@@ -21,6 +21,8 @@ The email is from the business to a client with an overdue invoice.
 Tone: firm but polite. Not aggressive. Professional.
 Return JSON only: { "subject": string, "body": string }
 
+CRITICAL: The email body must be plain text only. No markdown. No asterisks. No hashtags. No bold or italic. Natural professional prose only.
+
 Business context: ${profile}
 Client: ${params.clientName}
 Amount: ${params.currency}${params.amount}

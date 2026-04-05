@@ -1,10 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { AIBadge } from '@/components/layout/AIBadge'
 
 export function DigestCard() {
+  const t = useTranslations('overview')
   const supabase = createClient()
   const [content, setContent] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -62,21 +64,21 @@ export function DigestCard() {
           onMouseEnter={(e) => { if (!regenerating) e.currentTarget.style.color = 'var(--dark-card-text)' }}
           onMouseLeave={(e) => { if (!regenerating) e.currentTarget.style.color = 'var(--dark-card-muted)' }}
         >
-          {regenerating ? 'Generating…' : 'Regenerate →'}
+          {regenerating ? t('digestRegenerating') : t('digestRegenerate')}
         </button>
       </div>
 
       {/* Body */}
       <p style={{ fontSize: '15px', lineHeight: 1.6, color: 'var(--dark-card-text)', maxWidth: '580px', margin: '0 0 20px 0', whiteSpace: 'pre-wrap' }}>
         {loading ? (
-          <span style={{ color: '#555', fontSize: '13px' }}>Loading digest…</span>
+          <span style={{ color: '#555', fontSize: '13px' }}>{t('digestLoading')}</span>
         ) : content ? (
           content
         ) : (
           <span style={{ color: '#666', fontSize: '13px' }}>
-            Your daily digest will be ready at 7:00 AM.{' '}
+            {t('digestNoContent')}{' '}
             <button onClick={handleRegenerate} style={{ background: 'none', border: 'none', color: '#6366F1', cursor: 'pointer', fontSize: '13px', padding: 0, textDecoration: 'underline' }}>
-              Generate now →
+              {t('digestGenerate')}
             </button>
           </span>
         )}

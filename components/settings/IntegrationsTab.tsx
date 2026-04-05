@@ -24,8 +24,10 @@ export default function IntegrationsTab() {
   const supabase = createClient()
   const searchParams = useSearchParams()
   const fileRef = useRef<HTMLInputElement>(null)
+  const oauthProcessed = useRef(false)
 
   const [gmail, setGmail] = useState<GmailStatus>({ connected: false })
+  const [gmailConnecting, setGmailConnecting] = useState(false)
   const [pennylane, setPennylane] = useState<PennylaneStatus>({ connected: false })
   const [csvPreview, setCsvPreview] = useState<CsvPreviewRow[] | null>(null)
   const [csvFile, setCsvFile] = useState<File | null>(null)
@@ -41,6 +43,30 @@ export default function IntegrationsTab() {
     if (error === 'pennylane_oauth_failed') toast.error('Pennylane connection failed')
     if (error === 'pennylane_not_configured') toast.error('Pennylane not configured — add PENNYLANE_CLIENT_ID to .env')
   }, [])
+
+  // Handle OAuth return — gmail_connected param set by /api/auth/callback/google
+  useEffect(() => {
+    if (oauthProcessed.current) return
+    const gmailConnected = searchParams.get('gmail_connected')
+    const gmailEmail = searchParams.get('gmail_email')
+    const gmailError = searchParams.get('gmail_error')
+
+    if (gmailConnected === 'true' && gmailEmail) {
+      oauthProcessed.current = true
+      window.history.replaceState({}, '', '/settings?tab=integrations')
+      toast.success(`Gmail connected as ${gmailEmail}`)
+      loadStatuses()
+    } else if (gmailConnected === 'false') {
+      oauthProcessed.current = true
+      window.history.replaceState({}, '', '/settings?tab=integrations')
+      const msg = gmailError === 'no_token'
+        ? 'Google did not return an access token. Enable "Save provider tokens" in Supabase → Auth → Providers → Google.'
+        : gmailError === 'save_failed'
+          ? 'Token received but could not be saved.'
+          : 'Gmail connection failed. Please try again.'
+      toast.error(msg)
+    }
+  }, [searchParams])
 
   async function loadStatuses() {
     const { data: { user } } = await supabase.auth.getUser()
@@ -69,6 +95,24 @@ export default function IntegrationsTab() {
         setPennylane({ connected: integration.status === 'connected', lastSynced: integration.last_synced_at })
       }
     }
+  }
+
+  async function handleGmailConnect() {
+    setGmailConnecting(true)
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        scopes: 'https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar.readonly',
+        redirectTo: `${window.location.origin}/api/auth/callback/google?from=settings`,
+        queryParams: { access_type: 'offline', prompt: 'consent' },
+      },
+    })
+    if (error) {
+      console.error('Gmail OAuth error:', error.message)
+      toast.error('Could not start Gmail connection. Check your Google OAuth credentials.')
+      setGmailConnecting(false)
+    }
+    // If no error, browser redirects — no need to reset state
   }
 
   async function disconnectGmail() {
@@ -154,7 +198,12 @@ export default function IntegrationsTab() {
                 </div>
                 <span style={mutedTextStyle}>Last synced: {gmail.lastSynced ? new Date(gmail.lastSynced).toLocaleString() : 'Never'}</span>
                 <span style={mutedTextStyle}>{watchActive ? '🟢 Real-time sync active' : '🔴 Webhook inactive — reconnect to restore'}</span>
-                <div style={{ marginTop: '8px' }}>
+                <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
+                  {!watchActive && (
+                    <button onClick={handleGmailConnect} disabled={gmailConnecting} style={{ ...secondaryBtnStyle, cursor: gmailConnecting ? 'not-allowed' : 'pointer' }}>
+                      {gmailConnecting ? 'Redirecting…' : 'Reconnect'}
+                    </button>
+                  )}
                   <button onClick={disconnectGmail} style={dangerBtnStyle}>Disconnect</button>
                 </div>
               </div>
@@ -164,7 +213,9 @@ export default function IntegrationsTab() {
                   <span style={redDotStyle} />
                   <span style={statusTextStyle}>Not connected</span>
                 </div>
-                <a href="/api/auth/gmail/connect" style={primaryBtnStyle as React.CSSProperties}>Connect Gmail</a>
+                <button onClick={handleGmailConnect} disabled={gmailConnecting} style={{ ...primaryBtnStyle, opacity: gmailConnecting ? 0.7 : 1, cursor: gmailConnecting ? 'not-allowed' : 'pointer' }}>
+                  {gmailConnecting ? 'Redirecting to Google…' : 'Connect Gmail'}
+                </button>
               </div>
             )}
           </IntegrationCard>

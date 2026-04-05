@@ -3,11 +3,17 @@
 
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto'
 
-const ENCRYPTION_KEY = Buffer.from(process.env.ENCRYPTION_KEY!, 'hex') // 32 bytes
+function getKey(): Buffer {
+  const raw = process.env.ENCRYPTION_KEY
+  if (!raw || raw.length !== 64) {
+    throw new Error('ENCRYPTION_KEY env var is missing or not 64 hex chars. Run: openssl rand -hex 32')
+  }
+  return Buffer.from(raw, 'hex')
+}
 
 export function encrypt(text: string): string {
   const iv = randomBytes(16)
-  const cipher = createCipheriv('aes-256-gcm', ENCRYPTION_KEY, iv)
+  const cipher = createCipheriv('aes-256-gcm', getKey(), iv)
   const encrypted = Buffer.concat([cipher.update(text, 'utf8'), cipher.final()])
   const tag = cipher.getAuthTag()
   return `${iv.toString('hex')}:${tag.toString('hex')}:${encrypted.toString('hex')}`
@@ -18,7 +24,7 @@ export function decrypt(encryptedText: string): string {
   const iv = Buffer.from(ivHex, 'hex')
   const tag = Buffer.from(tagHex, 'hex')
   const data = Buffer.from(dataHex, 'hex')
-  const decipher = createDecipheriv('aes-256-gcm', ENCRYPTION_KEY, iv)
+  const decipher = createDecipheriv('aes-256-gcm', getKey(), iv)
   decipher.setAuthTag(tag)
   return Buffer.concat([decipher.update(data), decipher.final()]).toString('utf8')
 }

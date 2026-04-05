@@ -1,11 +1,9 @@
+'use client'
+
+import { useTranslations } from 'next-intl'
 import { Card } from '@/components/layout/Card'
 import { SectionTitle } from '@/components/layout/SectionTitle'
 import { Badge } from '@/components/layout/Badge'
-
-const currentMonth = new Date().toLocaleDateString('en-GB', {
-  month: 'long',
-  year: 'numeric',
-})
 
 interface InvoiceRow {
   client: string
@@ -26,16 +24,24 @@ const statusVariant: Record<InvoiceRow['status'], 'success' | 'warning' | 'error
   overdue: 'error',
 }
 
-const statusLabel: Record<InvoiceRow['status'], string> = {
-  paid: 'Paid',
-  pending: 'Pending',
-  overdue: 'Overdue',
-}
-
 export function FinanceSnapshot() {
+  const t = useTranslations('finance')
+  const to = useTranslations('overview')
+
+  const currentMonth = new Date().toLocaleDateString(undefined, {
+    month: 'long',
+    year: 'numeric',
+  })
+
+  const statusLabel: Record<InvoiceRow['status'], string> = {
+    paid: t('paid'),
+    pending: t('pending'),
+    overdue: t('overdue'),
+  }
+
   return (
     <Card>
-      <SectionTitle>Finance — {currentMonth.toUpperCase()}</SectionTitle>
+      <SectionTitle>{to('financeSnapshot')} — {currentMonth.toUpperCase()}</SectionTitle>
 
       {/* 3 metric columns */}
       <div
@@ -57,7 +63,7 @@ export function FinanceSnapshot() {
               margin: '0 0 4px 0',
             }}
           >
-            Revenue
+            {t('revenue')}
           </p>
           <p
             style={{
@@ -81,7 +87,7 @@ export function FinanceSnapshot() {
               margin: '0 0 4px 0',
             }}
           >
-            Expenses
+            {t('expenses')}
           </p>
           <p
             style={{
@@ -105,7 +111,7 @@ export function FinanceSnapshot() {
               margin: '0 0 4px 0',
             }}
           >
-            Net
+            {t('total')}
           </p>
           <p
             style={{
@@ -122,7 +128,7 @@ export function FinanceSnapshot() {
 
       <hr style={{ border: 'none', borderTop: '1px solid var(--border-default)', margin: '0 0 20px 0' }} />
 
-      <SectionTitle>Latest Invoices</SectionTitle>
+      <SectionTitle>{t('invoices')}</SectionTitle>
       <div className="flex flex-col" style={{ gap: '12px' }}>
         {MOCK_INVOICES.map((inv, idx) => (
           <div

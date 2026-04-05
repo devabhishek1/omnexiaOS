@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { FilterBar } from '@/components/communications/FilterBar'
 import { ConversationList } from '@/components/communications/ConversationList'
@@ -9,43 +9,30 @@ import { ComposeModal } from '@/components/communications/ComposeModal'
 import type { Conversation } from '@/components/communications/mock-data'
 
 // ---------------------------------------------------------------------------
-// Adapt Supabase rows → Conversation shape
+// Adapt decrypted API rows → Conversation shape
 // ---------------------------------------------------------------------------
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function adaptMessages(rows: any[]): Conversation['messages'] {
-  return rows.map((m) => ({
-    id: m.id,
-    direction: m.direction,
-    senderName: m.sender_name ?? m.sender_email ?? 'Unknown',
-    senderEmail: m.sender_email ?? '',
-    body: m.body_cached ?? m.body_preview ?? '',
-    timestamp: m.received_at
-      ? new Date(m.received_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-      : '',
-  }))
-}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function adaptConversation(row: any, messages: Conversation['messages'] = []): Conversation {
   return {
     id: row.id,
+    externalId: row.externalId,
     channel: row.channel ?? 'gmail',
     status: row.status ?? 'read',
     priority: row.priority ?? false,
     sender: {
-      name: row.participant_name ?? row.participant_email ?? 'Unknown',
-      email: row.participant_email ?? '',
+      name: row.participantName ?? row.participantEmail ?? 'Unknown',
+      email: row.participantEmail ?? '',
     },
     subject: row.subject ?? '(no subject)',
     preview: messages[messages.length - 1]?.body?.slice(0, 120) ?? '',
-    timestamp: row.last_message_at
-      ? new Date(row.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    timestamp: row.lastMessageAt
+      ? new Date(row.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       : '',
     labels: row.labels ?? [],
-    assignedTo: row.assigned_to ?? undefined,
+    assignedTo: row.assignedTo,
     messages,
-    aiSuggestedReply: undefined, // wired in Phase 12
+    aiSuggestedReply: undefined,
   }
 }
 
@@ -64,6 +51,12 @@ export default function CommunicationsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [dismissedAI, setDismissedAI] = useState<Set<string>>(new Set())
 
+  // Resizable panel
+  const [listWidth, setListWidth] = useState(320)
+  const dragging = useRef(false)
+  const startX = useRef(0)
+  const startWidth = useRef(320)
+
   // Filters
   const [activeChannel, setActiveChannel] = useState('all')
   const [activeStatus, setActiveStatus] = useState('all')
@@ -71,6 +64,7 @@ export default function CommunicationsPage() {
   const [mineOnly, setMineOnly] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [composeOpen, setComposeOpen] = useState(false)
+  const [syncing, setSyncing] = useState(false)
 
   // ---------------------------------------------------------------------------
   // Load business name + user info
@@ -106,14 +100,18 @@ export default function CommunicationsPage() {
   // ---------------------------------------------------------------------------
 
   const loadConversations = useCallback(async () => {
-    const { data } = await supabase
-      .from('conversations')
-      .select('*')
-      .order('last_message_at', { ascending: false })
-
-    setConversations((data ?? []).map((row) => adaptConversation(row)))
+    const res = await fetch('/api/gmail/conversations')
+    if (!res.ok) { setLoading(false); return }
+    const { conversations: rows } = await res.json()
+    const unique = Array.from(new Map((rows ?? []).map((r: { id: string }) => [r.id, r])).values())
+    // Preserve already-loaded messages so Realtime reloads don't wipe thread contents
+    setConversations((prev) => {
+      const existing = new Map(prev.map((c) => [c.id, c.messages]))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return unique.map((row: any) => adaptConversation(row, existing.get(row.id) ?? []))
+    })
     setLoading(false)
-  }, [supabase])
+  }, [])
 
   useEffect(() => {
     loadConversations()
@@ -143,18 +141,14 @@ export default function CommunicationsPage() {
   // ---------------------------------------------------------------------------
 
   const loadMessages = useCallback(async (conversationId: string) => {
-    const { data } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('conversation_id', conversationId)
-      .order('received_at', { ascending: true })
-
-    if (!data) return
-
+    const res = await fetch(`/api/gmail/messages?conversationId=${conversationId}`)
+    if (!res.ok) return
+    const { messages } = await res.json()
+    if (!messages) return
     setConversations((prev) =>
-      prev.map((c) => c.id === conversationId ? { ...c, messages: adaptMessages(data) } : c)
+      prev.map((c) => c.id === conversationId ? { ...c, messages } : c)
     )
-  }, [supabase])
+  }, [])
 
   // ---------------------------------------------------------------------------
   // Filtered list
@@ -182,8 +176,53 @@ export default function CommunicationsPage() {
   const showAIPanel = !!selectedConversation?.aiSuggestedReply && !dismissedAI.has(selectedId ?? '')
 
   // ---------------------------------------------------------------------------
+  // Resize panel — global mouse events
+  // ---------------------------------------------------------------------------
+
+  useEffect(() => {
+    function onMouseMove(e: MouseEvent) {
+      if (!dragging.current) return
+      const delta = e.clientX - startX.current
+      const next = Math.max(240, Math.min(520, startWidth.current + delta))
+      setListWidth(next)
+    }
+    function onMouseUp() {
+      if (dragging.current) {
+        dragging.current = false
+        document.body.style.cursor = ''
+        document.body.style.userSelect = ''
+      }
+    }
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [])
+
+  // ---------------------------------------------------------------------------
   // Actions
   // ---------------------------------------------------------------------------
+
+  async function handleSync() {
+    setSyncing(true)
+    try {
+      await fetch('/api/gmail/initial-sync', { method: 'POST' })
+      await loadConversations()
+    } catch { /* non-fatal */ }
+    setSyncing(false)
+  }
+
+  async function handleGmailConnected(_email: string) {
+    // Trigger initial sync after Gmail is connected
+    try {
+      await fetch('/api/gmail/initial-sync', { method: 'POST' })
+      await loadConversations()
+    } catch {
+      // non-fatal
+    }
+  }
 
   async function handleSelect(id: string) {
     setSelectedId(id)
@@ -192,6 +231,12 @@ export default function CommunicationsPage() {
       prev.map((c) => c.id === id && c.status === 'unread' ? { ...c, status: 'read' } : c)
     )
     await loadMessages(id)
+    // Background: fetch full Gmail thread history so all historical messages appear
+    fetch('/api/gmail/sync-thread', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversationId: id }),
+    }).then(() => loadMessages(id)).catch(() => { /* non-fatal */ })
   }
 
   async function handleMarkUnread(id: string) {
@@ -203,20 +248,31 @@ export default function CommunicationsPage() {
     setDismissedAI((prev) => new Set([...prev, id]))
   }
 
-  async function handleSendReply(id: string, text: string) {
+  async function handleSendReply(id: string, text: string, files?: File[]) {
     const conv = conversations.find((c) => c.id === id)
     if (conv) {
-      await fetch('/api/gmail/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          conversationId: id,
-          threadId: id,
-          to: conv.sender.email,
-          subject: conv.subject,
-          replyBody: text,
-        }),
-      })
+      if (files && files.length > 0) {
+        const fd = new FormData()
+        fd.append('conversationId', id)
+        fd.append('threadId', conv.externalId ?? '')
+        fd.append('to', conv.sender.email)
+        fd.append('subject', conv.subject)
+        fd.append('replyBody', text)
+        for (const f of files) fd.append('attachments', f)
+        await fetch('/api/gmail/send', { method: 'POST', body: fd })
+      } else {
+        await fetch('/api/gmail/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            conversationId: id,
+            threadId: conv.externalId,
+            to: conv.sender.email,
+            subject: conv.subject,
+            replyBody: text,
+          }),
+        })
+      }
       await loadMessages(id)
     }
     setConversations((prev) => prev.map((c) => c.id === id ? { ...c, status: 'replied' } : c))
@@ -250,6 +306,8 @@ export default function CommunicationsPage() {
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
           onCompose={() => setComposeOpen(true)}
+          onSync={handleSync}
+          syncing={syncing}
         />
 
         {loading ? (
@@ -263,6 +321,27 @@ export default function CommunicationsPage() {
               allEmpty={conversations.length === 0}
               selectedId={selectedId}
               onSelect={handleSelect}
+              onGmailConnected={handleGmailConnected}
+              width={listWidth}
+            />
+            {/* Drag handle */}
+            <div
+              onMouseDown={(e) => {
+                dragging.current = true
+                startX.current = e.clientX
+                startWidth.current = listWidth
+                document.body.style.cursor = 'col-resize'
+                document.body.style.userSelect = 'none'
+              }}
+              style={{
+                width: '4px',
+                flexShrink: 0,
+                background: 'var(--border-default)',
+                cursor: 'col-resize',
+                transition: 'background 0.1s',
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--omnexia-accent)' }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--border-default)' }}
             />
             <ThreadView
               conversation={selectedConversation}
@@ -277,7 +356,7 @@ export default function CommunicationsPage() {
         )}
       </div>
 
-      {composeOpen && <ComposeModal onClose={() => setComposeOpen(false)} />}
+      {composeOpen && <ComposeModal onClose={() => setComposeOpen(false)} onSent={loadConversations} />}
     </>
   )
 }

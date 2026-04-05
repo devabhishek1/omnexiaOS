@@ -2,6 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import BusinessTab from '@/components/settings/BusinessTab'
 import IntegrationsTab from '@/components/settings/IntegrationsTab'
@@ -14,6 +15,7 @@ type TabValue = 'business' | 'integrations' | 'notifications' | 'account'
 function SettingsContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
+  const t = useTranslations('settings')
   const tabParam = searchParams.get('tab') as TabValue | null
   const [activeTab, setActiveTab] = useState<TabValue>(tabParam ?? 'business')
 
@@ -30,10 +32,10 @@ function SettingsContent() {
     <div style={{ padding: '32px', maxWidth: '900px' }}>
       <div style={{ marginBottom: '28px' }}>
         <h1 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.02em', marginBottom: '4px' }}>
-          Settings
+          {t('title')}
         </h1>
         <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-          Manage your business, integrations, and account preferences
+          {t('subtitle')}
         </p>
       </div>
 
@@ -43,9 +45,9 @@ function SettingsContent() {
             <TabsTrigger
               key={tab}
               value={tab}
-              style={{ textTransform: 'capitalize', padding: '8px 16px', fontSize: '13px', fontWeight: 500 }}
+              style={{ padding: '8px 16px', fontSize: '13px', fontWeight: 500 }}
             >
-              {tab}
+              {tab === 'business' ? t('tabBusiness') : tab === 'integrations' ? t('tabIntegrations') : tab === 'notifications' ? t('tabNotifications') : t('tabAccount')}
             </TabsTrigger>
           ))}
         </TabsList>

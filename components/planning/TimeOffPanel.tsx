@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { Check, X } from 'lucide-react'
 
@@ -25,6 +26,8 @@ interface Props {
 }
 
 export default function TimeOffPanel({ requests, employees, currentUserId, currentEmployeeId, businessId, onRequestsChange }: Props) {
+  const t = useTranslations('planning')
+  const tc = useTranslations('common')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [reason, setReason] = useState('')
@@ -81,12 +84,12 @@ export default function TimeOffPanel({ requests, employees, currentUserId, curre
       {/* Admin: Pending requests */}
       <div style={{ backgroundColor: 'var(--bg-surface)', borderRadius: '12px', border: '1px solid var(--border)', padding: '20px 24px' }}>
         <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px' }}>
-          Time-Off Requests
+          {t('timeOffRequests')}
           {pending.length > 0 && <span style={{ marginLeft: '8px', backgroundColor: '#EF4444', color: '#fff', borderRadius: '20px', padding: '1px 7px', fontSize: '11px' }}>{pending.length}</span>}
         </p>
 
         {requests.length === 0 ? (
-          <p style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', padding: '16px 0' }}>No requests yet.</p>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', padding: '16px 0' }}>{t('noRequests')}</p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {requests.slice().sort((a, b) => a.status === 'pending' ? -1 : 1).map(req => {
@@ -126,7 +129,7 @@ export default function TimeOffPanel({ requests, employees, currentUserId, curre
 
       {/* Employee: Request leave */}
       <div style={{ backgroundColor: 'var(--bg-surface)', borderRadius: '12px', border: '1px solid var(--border)', padding: '20px 24px' }}>
-        <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px' }}>Request Leave</p>
+        <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px' }}>{t('requestTimeOff')}</p>
 
         {!currentEmployeeId ? (
           <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>You need an employee profile to request leave. Add yourself in the Team module.</p>
@@ -134,27 +137,27 @@ export default function TimeOffPanel({ requests, employees, currentUserId, curre
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               <div>
-                <label style={labelStyle}>Start date</label>
+                <label style={labelStyle}>{t('startDate')}</label>
                 <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={inputStyle} />
               </div>
               <div>
-                <label style={labelStyle}>End date</label>
+                <label style={labelStyle}>{t('endDate')}</label>
                 <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={inputStyle} />
               </div>
             </div>
             <div>
-              <label style={labelStyle}>Reason (optional)</label>
+              <label style={labelStyle}>{t('reason')}</label>
               <textarea value={reason} onChange={e => setReason(e.target.value)} rows={3} placeholder="Annual leave, medical, etc." style={{ ...inputStyle, resize: 'vertical' }} />
             </div>
             {error && <p style={{ fontSize: '12px', color: '#DC2626', margin: 0 }}>{error}</p>}
             <button onClick={handleSubmit} disabled={submitting} style={{ padding: '8px 16px', backgroundColor: submitting ? 'var(--border-strong)' : 'var(--omnexia-accent)', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
-              {submitting ? 'Submitting…' : 'Submit Request'}
+              {submitting ? tc('sending') : t('requestTimeOff')}
             </button>
 
             {/* Own history */}
             {myRequests.length > 0 && (
               <div style={{ marginTop: '8px' }}>
-                <p style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', margin: '0 0 8px' }}>Your requests</p>
+                <p style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', margin: '0 0 8px' }}>{t('myRequests')}</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {myRequests.map(r => {
                     const sc = statusColors[r.status] ?? statusColors.pending

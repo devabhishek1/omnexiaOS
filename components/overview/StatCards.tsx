@@ -1,38 +1,47 @@
+import { useTranslations } from 'next-intl'
+
 interface StatCard {
-  label: string
+  labelKey: string
   value: string
-  delta: string
+  deltaKey: string
+  deltaCount: number
   accentColor: string
 }
 
-const stats: StatCard[] = [
-  {
-    label: 'Unread Messages',
-    value: '24',
-    delta: '+3 today',
-    accentColor: 'var(--omnexia-accent)',
-  },
-  {
-    label: 'Pending Invoices',
-    value: '€8,420',
-    delta: '3 invoices',
-    accentColor: 'var(--amber)',
-  },
-  {
-    label: 'Active Employees',
-    value: '12',
-    delta: '2 on leave',
-    accentColor: 'var(--green)',
-  },
-  {
-    label: "Today's Tasks",
-    value: '7',
-    delta: '3 urgent',
-    accentColor: 'var(--red)',
-  },
-]
-
 export function StatCards() {
+  const t = useTranslations('overview')
+
+  const stats: StatCard[] = [
+    {
+      labelKey: 'unreadMessages',
+      value: '24',
+      deltaKey: 'todayAdded',
+      deltaCount: 3,
+      accentColor: 'var(--omnexia-accent)',
+    },
+    {
+      labelKey: 'pendingInvoices',
+      value: '€8,420',
+      deltaKey: 'todayAdded',
+      deltaCount: 3,
+      accentColor: 'var(--amber)',
+    },
+    {
+      labelKey: 'activeEmployees',
+      value: '12',
+      deltaKey: 'onLeave',
+      deltaCount: 2,
+      accentColor: 'var(--green)',
+    },
+    {
+      labelKey: 'todaysTasks',
+      value: '7',
+      deltaKey: 'todayUrgent',
+      deltaCount: 3,
+      accentColor: 'var(--red)',
+    },
+  ]
+
   return (
     <div
       style={{
@@ -43,7 +52,7 @@ export function StatCards() {
     >
       {stats.map((stat) => (
         <div
-          key={stat.label}
+          key={stat.labelKey}
           style={{
             background: 'var(--bg-surface)',
             border: '1px solid var(--border-default)',
@@ -79,7 +88,7 @@ export function StatCards() {
               margin: '0 0 10px 0',
             }}
           >
-            {stat.label}
+            {t(stat.labelKey)}
           </p>
           <p
             style={{
@@ -100,7 +109,7 @@ export function StatCards() {
               margin: 0,
             }}
           >
-            {stat.delta}
+            {t(stat.deltaKey, { count: stat.deltaCount })}
           </p>
         </div>
       ))}

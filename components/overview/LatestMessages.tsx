@@ -1,6 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { Card } from '@/components/layout/Card'
 import { SectionTitle } from '@/components/layout/SectionTitle'
 import { Avatar } from '@/components/layout/Avatar'
@@ -72,10 +73,11 @@ function getInitials(name: string) {
 
 export function LatestMessages() {
   const router = useRouter()
+  const t = useTranslations('overview')
 
   return (
     <Card>
-      <SectionTitle>Latest Messages</SectionTitle>
+      <SectionTitle>{t('latestMessages')}</SectionTitle>
       <div>
         {MOCK_MESSAGES.map((msg, idx) => (
           <button

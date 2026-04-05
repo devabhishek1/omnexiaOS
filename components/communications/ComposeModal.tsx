@@ -1,20 +1,68 @@
 'use client'
 
-import React, { useState } from 'react'
-import { X, Send, Mail } from 'lucide-react'
+import React, { useState, useRef } from 'react'
+import { useTranslations } from 'next-intl'
+import { X, Send, Mail, Paperclip } from 'lucide-react'
 
 interface ComposeModalProps {
   onClose: () => void
+  onSent?: () => void
 }
 
-export function ComposeModal({ onClose }: ComposeModalProps) {
+export function ComposeModal({ onClose, onSent }: ComposeModalProps) {
+  const t = useTranslations('communications')
+  const tc = useTranslations('common')
   const [to, setTo] = useState('')
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
+  const [attachments, setAttachments] = useState<File[]>([])
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  function handleSend() {
-    // Mock send — just close the modal
-    onClose()
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    setAttachments((prev) => [...prev, ...files])
+    e.target.value = ''
+  }
+
+  async function handleSend() {
+    if (!to || !subject || sending) return
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(to.trim())) {
+      setError('Please enter a valid email address')
+      return
+    }
+    setSending(true)
+    setError(null)
+    try {
+      let res: Response
+      if (attachments.length > 0) {
+        const fd = new FormData()
+        fd.append('to', to.trim())
+        fd.append('subject', subject)
+        fd.append('replyBody', body)
+        for (const f of attachments) fd.append('attachments', f)
+        res = await fetch('/api/gmail/send', { method: 'POST', body: fd })
+      } else {
+        res = await fetch('/api/gmail/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to: to.trim(), subject, replyBody: body }),
+        })
+      }
+      if (res.ok) {
+        onSent?.()
+        onClose()
+      } else {
+        const data = await res.json()
+        setError(data.error ?? 'Failed to send')
+        setSending(false)
+      }
+    } catch {
+      setError('Network error — please try again')
+      setSending(false)
+    }
   }
 
   return (
@@ -57,7 +105,7 @@ export function ComposeModal({ onClose }: ComposeModalProps) {
             <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: 'var(--gmail-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Mail size={14} color="var(--gmail)" />
             </div>
-            <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>New Message</span>
+            <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>{t('compose')}</span>
             <span style={{ fontSize: '11px', color: 'var(--gmail)', background: 'var(--gmail-light)', padding: '2px 8px', borderRadius: '20px', fontWeight: 600 }}>Gmail</span>
           </div>
           <button
@@ -73,7 +121,7 @@ export function ComposeModal({ onClose }: ComposeModalProps) {
         <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {/* To */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid var(--border-default)', paddingBottom: '10px' }}>
-            <label style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)', width: '60px', flexShrink: 0 }}>To</label>
+            <label style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)', width: '60px', flexShrink: 0 }}>{t('to')}</label>
             <input
               id="compose-to"
               type="email"
@@ -94,7 +142,7 @@ export function ComposeModal({ onClose }: ComposeModalProps) {
 
           {/* Subject */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', borderBottom: '1px solid var(--border-default)', paddingBottom: '10px' }}>
-            <label style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)', width: '60px', flexShrink: 0 }}>Subject</label>
+            <label style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)', width: '60px', flexShrink: 0 }}>{t('subject')}</label>
             <input
               id="compose-subject"
               type="text"
@@ -136,55 +184,80 @@ export function ComposeModal({ onClose }: ComposeModalProps) {
         {/* Footer */}
         <div
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            gap: '8px',
-            padding: '12px 20px',
             borderTop: '1px solid var(--border-default)',
             background: 'var(--bg-base)',
           }}
         >
-          <button
-            id="compose-cancel-btn"
-            onClick={onClose}
-            style={{
-              padding: '8px 16px',
-              background: 'transparent',
-              color: 'var(--text-secondary)',
-              border: '1px solid var(--border-default)',
-              borderRadius: '8px',
-              fontSize: '13px',
-              fontWeight: 500,
-              cursor: 'pointer',
-              fontFamily: 'var(--font-dm-sans), sans-serif',
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            id="compose-send-btn"
-            onClick={handleSend}
-            disabled={!to || !subject}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 18px',
-              background: (!to || !subject) ? 'var(--border-strong)' : 'var(--accent)',
-              color: '#FFFFFF',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: (!to || !subject) ? 'not-allowed' : 'pointer',
-              opacity: (!to || !subject) ? 0.6 : 1,
-              fontFamily: 'var(--font-dm-sans), sans-serif',
-              transition: 'background 0.15s',
-            }}
-          >
-            <Send size={13} /> Send
-          </button>
+          {/* Attachment chips */}
+          {attachments.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '8px 20px 0' }}>
+              {attachments.map((f, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#EEF3FE', borderRadius: '6px', padding: '3px 8px', fontSize: '12px', color: '#2563EB' }}>
+                  <Paperclip size={11} />
+                  <span style={{ maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                  <button onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 0 2px', lineHeight: 1, color: '#2563EB', display: 'flex' }}>
+                    <X size={11} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {error && (
+            <p style={{ margin: 0, padding: '8px 20px 0', fontSize: '12px', color: '#DC2626' }}>{error}</p>
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '12px 20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }} onChange={handleFileChange} />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                title="Attach files"
+                style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 12px', background: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--border-default)', borderRadius: '8px', fontSize: '13px', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif' }}
+              >
+                <Paperclip size={13} /> {t('attachFile')}
+              </button>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                id="compose-cancel-btn"
+                onClick={onClose}
+                style={{
+                  padding: '8px 16px',
+                  background: 'transparent',
+                  color: 'var(--text-secondary)',
+                  border: '1px solid var(--border-default)',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  fontFamily: 'var(--font-dm-sans), sans-serif',
+                }}
+              >
+                {tc('cancel')}
+              </button>
+              <button
+                id="compose-send-btn"
+                onClick={handleSend}
+                disabled={!to || !subject || sending}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 18px',
+                  background: (!to || !subject || sending) ? '#93C5FD' : 'var(--omnexia-accent)',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: (!to || !subject || sending) ? 'not-allowed' : 'pointer',
+                  fontFamily: 'var(--font-dm-sans), sans-serif',
+                  transition: 'background 0.15s',
+                }}
+              >
+                <Send size={13} /> {sending ? tc('sending') : tc('send')}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

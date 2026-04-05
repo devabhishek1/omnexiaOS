@@ -1,8 +1,10 @@
 'use client'
 
-import React from 'react'
+import React, { Suspense } from 'react'
+import { useTranslations } from 'next-intl'
 import { Inbox } from 'lucide-react'
 import type { Conversation, ConversationChannel } from './mock-data'
+import ConnectGmailButton from '@/components/gmail/ConnectGmailButton'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -226,14 +228,17 @@ interface ConversationListProps {
   allEmpty: boolean
   selectedId: string | null
   onSelect: (id: string) => void
+  onGmailConnected?: (email: string) => void
+  width?: number
 }
 
-export function ConversationList({ conversations, allEmpty, selectedId, onSelect }: ConversationListProps) {
+export function ConversationList({ conversations, allEmpty, selectedId, onSelect, onGmailConnected, width = 320 }: ConversationListProps) {
+  const t = useTranslations('communications')
   if (allEmpty) {
     return (
       <div
         style={{
-          width: '320px',
+          width: `${width}px`,
           flexShrink: 0,
           borderRight: '1px solid var(--border-default)',
           display: 'flex',
@@ -244,40 +249,23 @@ export function ConversationList({ conversations, allEmpty, selectedId, onSelect
           background: 'var(--bg-surface)',
           padding: '32px 24px',
           textAlign: 'center',
+          overflowY: 'auto',
         }}
       >
         <div style={{ width: '56px', height: '56px', borderRadius: '14px', background: '#EEF3FE', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '4px' }}>
           <Inbox size={28} color="#2563EB" />
         </div>
         <p style={{ fontSize: '15px', fontWeight: 700, color: '#1A1A1A', margin: 0 }}>
-          No messages yet
+          {t('noMessages')}
         </p>
         <p style={{ fontSize: '13px', color: '#6B6B6B', margin: 0, lineHeight: 1.5 }}>
-          Connect Gmail to start receiving<br />messages in your inbox
+          {t('connectGmail')}
         </p>
-        <a
-          href="/settings"
-          style={{
-            marginTop: '6px',
-            display: 'inline-block',
-            padding: '9px 20px',
-            background: '#2563EB',
-            color: '#FFFFFF',
-            border: 'none',
-            borderRadius: '8px',
-            fontSize: '13px',
-            fontWeight: 600,
-            cursor: 'pointer',
-            fontFamily: 'var(--font-dm-sans), sans-serif',
-            textDecoration: 'none',
-            letterSpacing: '0.01em',
-          }}
-        >
-          Connect Gmail
-        </a>
-        <p style={{ fontSize: '11px', color: '#9A9A9A', margin: 0 }}>
-          You can also reconnect from Settings
-        </p>
+        <div style={{ marginTop: '12px', width: '100%' }}>
+          <Suspense fallback={null}>
+            <ConnectGmailButton from="dashboard" onConnected={onGmailConnected} />
+          </Suspense>
+        </div>
       </div>
     )
   }
@@ -286,7 +274,7 @@ export function ConversationList({ conversations, allEmpty, selectedId, onSelect
     return (
       <div
         style={{
-          width: '320px',
+          width: `${width}px`,
           flexShrink: 0,
           borderRight: '1px solid var(--border-default)',
           display: 'flex',
@@ -301,7 +289,7 @@ export function ConversationList({ conversations, allEmpty, selectedId, onSelect
       >
         <Inbox size={28} color="var(--text-disabled)" />
         <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>
-          No messages match your filters
+          {t('noConversations')}
         </p>
       </div>
     )
@@ -310,7 +298,7 @@ export function ConversationList({ conversations, allEmpty, selectedId, onSelect
   return (
     <div
       style={{
-        width: '320px',
+        width: `${width}px`,
         flexShrink: 0,
         borderRight: '1px solid var(--border-default)',
         overflowY: 'auto',

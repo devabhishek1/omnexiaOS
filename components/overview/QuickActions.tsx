@@ -1,10 +1,12 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { PenSquare, FileText } from 'lucide-react'
 
 export function QuickActions() {
   const router = useRouter()
+  const t = useTranslations('overview')
 
   return (
     <div className="flex items-center gap-3">
@@ -33,7 +35,7 @@ export function QuickActions() {
         }}
       >
         <PenSquare size={14} />
-        Compose Message
+        {t('composeMessage')}
       </button>
 
       <button
@@ -61,7 +63,7 @@ export function QuickActions() {
         }}
       >
         <FileText size={14} />
-        Create Invoice
+        {t('createInvoice')}
       </button>
     </div>
   )

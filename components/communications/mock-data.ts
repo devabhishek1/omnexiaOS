@@ -12,6 +12,7 @@ export interface ThreadMessage {
 
 export interface Conversation {
   id: string
+  externalId?: string  // Gmail threadId (used for sending replies in-thread)
   channel: ConversationChannel
   status: ConversationStatus
   priority: boolean

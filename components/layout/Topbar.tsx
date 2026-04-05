@@ -2,17 +2,18 @@
 
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { Search } from 'lucide-react'
 import type { User } from '@/types/database'
 import { NotificationPanel } from './NotificationPanel'
 
-const pageTitles: Record<string, string> = {
-  overview: 'Overview',
-  communications: 'Communications',
-  finance: 'Finance',
-  planning: 'Planning',
-  team: 'Team & Roles',
-  settings: 'Settings',
+const pageTitleKeys: Record<string, string> = {
+  overview: 'overview',
+  communications: 'communications',
+  finance: 'finance',
+  planning: 'planning',
+  team: 'team',
+  settings: 'settings',
 }
 
 interface TopbarProps {
@@ -22,9 +23,12 @@ interface TopbarProps {
 export function Topbar({ user }: TopbarProps) {
   const pathname = usePathname()
   const [notifOpen, setNotifOpen] = useState(false)
+  const t = useTranslations('nav')
+  const tc = useTranslations('common')
 
   const segment = pathname.split('/').filter(Boolean)[0] ?? 'overview'
-  const pageTitle = pageTitles[segment] ?? 'Omnexia'
+  const pageTitleKey = pageTitleKeys[segment]
+  const pageTitle = pageTitleKey ? t(pageTitleKey) : 'Omnexia'
 
   return (
     <header
@@ -69,7 +73,7 @@ export function Topbar({ user }: TopbarProps) {
           <Search size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
           <input
             type="text"
-            placeholder="Search..."
+            placeholder={tc('search')}
             style={{
               background: 'transparent',
               border: 'none',
@@ -127,7 +131,6 @@ export function Topbar({ user }: TopbarProps) {
           {notifOpen && (
             <NotificationPanel
               userId={user.id}
-              businessId={user.business_id}
               onClose={() => setNotifOpen(false)}
             />
           )}

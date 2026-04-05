@@ -1,22 +1,8 @@
 'use client'
 
 import React from 'react'
-import { Search, PenSquare, Zap } from 'lucide-react'
-
-const CHANNELS: { id: string; label: string; soon?: boolean }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'gmail', label: 'Gmail' },
-  { id: 'instagram', label: 'Instagram', soon: true },
-  { id: 'facebook', label: 'Facebook', soon: true },
-]
-
-const STATUSES: { id: string; label: string }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'unread', label: 'Unread' },
-  { id: 'read', label: 'Read' },
-  { id: 'replied', label: 'Replied' },
-  { id: 'pending', label: 'Pending' },
-]
+import { useTranslations } from 'next-intl'
+import { Search, PenSquare, Zap, RefreshCw } from 'lucide-react'
 
 interface FilterBarProps {
   activeChannel: string
@@ -30,6 +16,8 @@ interface FilterBarProps {
   searchQuery: string
   setSearchQuery: (q: string) => void
   onCompose: () => void
+  onSync?: () => Promise<void>
+  syncing?: boolean
 }
 
 export function FilterBar({
@@ -39,7 +27,27 @@ export function FilterBar({
   mineOnly, setMineOnly,
   searchQuery, setSearchQuery,
   onCompose,
+  onSync,
+  syncing,
 }: FilterBarProps) {
+  const t = useTranslations('communications')
+  const tc = useTranslations('common')
+
+  const CHANNELS: { id: string; label: string; soon?: boolean }[] = [
+    { id: 'all', label: t('filterAll') },
+    { id: 'gmail', label: 'Gmail' },
+    { id: 'instagram', label: 'Instagram', soon: true },
+    { id: 'facebook', label: 'Facebook', soon: true },
+  ]
+
+  const STATUSES: { id: string; label: string }[] = [
+    { id: 'all', label: t('filterAll') },
+    { id: 'unread', label: t('filterUnread') },
+    { id: 'read', label: t('markRead') },
+    { id: 'replied', label: t('reply') },
+    { id: 'pending', label: t('filterPriority') },
+  ]
+
   return (
     <div
       style={{
@@ -85,7 +93,7 @@ export function FilterBar({
             }}
           >
             {ch.label}
-            {ch.soon && <span style={{ fontSize: '10px', marginLeft: '3px', color: '#BBBBBB' }}>(soon)</span>}
+            {ch.soon && <span style={{ fontSize: '10px', marginLeft: '3px', color: '#BBBBBB' }}>({tc('soon')})</span>}
           </button>
         )
       })}
@@ -157,7 +165,7 @@ export function FilterBar({
         }}
       >
         <Zap size={12} />
-        Priority
+        {t('filterPriority')}
       </button>
 
       {/* ── Mine toggle ── */}
@@ -187,7 +195,7 @@ export function FilterBar({
           if (!mineOnly) e.currentTarget.style.background = '#F3F4F6'
         }}
       >
-        👤 Mine
+        👤 {t('filterMine')}
       </button>
 
       {/* Spacer */}
@@ -209,7 +217,7 @@ export function FilterBar({
         <input
           id="comms-search"
           type="text"
-          placeholder="Search messages..."
+          placeholder={tc('search')}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           style={{
@@ -234,6 +242,26 @@ export function FilterBar({
           }}
         />
       </div>
+
+      {/* ── Sync ── */}
+      {onSync && (
+        <button
+          onClick={onSync}
+          disabled={syncing}
+          title="Sync inbox"
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: '32px', height: '32px',
+            background: 'transparent', border: '1px solid #E8E8E2', borderRadius: '8px',
+            cursor: syncing ? 'not-allowed' : 'pointer', flexShrink: 0,
+            color: '#6B6B6B', transition: 'background 0.12s',
+          }}
+          onMouseEnter={(e) => { if (!syncing) e.currentTarget.style.background = '#F3F4F6' }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+        >
+          <RefreshCw size={13} style={{ animation: syncing ? 'spin 1s linear infinite' : 'none' }} />
+        </button>
+      )}
 
       {/* ── Compose ── */}
       <button
@@ -261,7 +289,7 @@ export function FilterBar({
         onMouseLeave={(e) => { e.currentTarget.style.background = '#2563EB' }}
       >
         <PenSquare size={13} />
-        Compose
+        {t('compose')}
       </button>
     </div>
   )

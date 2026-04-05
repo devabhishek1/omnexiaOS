@@ -6,6 +6,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { parseGmailMessage, parseEmailAddress, type ParsedGmailMessage } from './parse'
+import { encrypt } from '@/lib/utils/crypto'
 
 export async function upsertMessage(
   parsed: ParsedGmailMessage,
@@ -24,7 +25,7 @@ export async function upsertMessage(
         external_id: parsed.threadId,
         participant_email: email,
         participant_name: name,
-        subject: parsed.subject,
+        subject: encrypt(parsed.subject),
         status: parsed.isUnread ? 'unread' : 'read',
         last_message_at: parsed.date
           ? new Date(parsed.date).toISOString()
@@ -49,18 +50,18 @@ export async function upsertMessage(
 
   if (existing) return
 
-  // ── Insert message ────────────────────────────────────────────────────────
+  // ── Insert message (body encrypted at rest) ───────────────────────────────
   const { error: msgError } = await admin.from('messages').insert({
     business_id: businessId,
     conversation_id: conversation.id,
     channel: 'gmail',
     gmail_message_id: parsed.gmailMessageId,
     direction: 'inbound',
-    sender_email: email,
-    sender_name: name,
-    subject: parsed.subject,
-    body_preview: parsed.bodyPreview,
-    body_cached: parsed.bodyCached,
+    sender_email: encrypt(email),
+    sender_name: encrypt(name),
+    subject: encrypt(parsed.subject),
+    body_preview: encrypt(parsed.bodyPreview),
+    body_cached: encrypt(parsed.bodyCached),
     is_read: !parsed.isUnread,
     received_at: parsed.date
       ? new Date(parsed.date).toISOString()
@@ -69,6 +70,32 @@ export async function upsertMessage(
 
   if (msgError) {
     console.error('[sync] message insert error:', msgError.message)
+  }
+}
+
+/**
+ * Fetches ALL messages in a Gmail thread and upserts any missing ones.
+ * Called when a conversation is opened so historical messages are always present.
+ */
+export async function fetchFullThread(
+  accessToken: string,
+  gmailThreadId: string,
+  businessId: string
+): Promise<void> {
+  const res = await fetch(
+    `https://gmail.googleapis.com/gmail/v1/users/me/threads/${gmailThreadId}?format=full`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  )
+  if (!res.ok) return
+  const thread = await res.json()
+  const messages: unknown[] = thread.messages ?? []
+  for (const msg of messages) {
+    try {
+      const parsed = parseGmailMessage(msg)
+      await upsertMessage(parsed, businessId)
+    } catch (e) {
+      console.error('[sync] fetchFullThread msg error:', e)
+    }
   }
 }
 

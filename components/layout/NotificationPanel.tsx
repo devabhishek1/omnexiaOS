@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import type { Notification } from '@/types/database'
 import { toast } from 'sonner'
@@ -26,21 +27,23 @@ const iconMap: Record<Notification['type'], React.ElementType> = {
   invite: Gift,
 }
 
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h ago`
-  return `${Math.floor(hours / 24)}d ago`
-}
-
 export function NotificationPanel({
   userId,
   onClose,
 }: NotificationPanelProps) {
   const router = useRouter()
+  const t = useTranslations('notifications')
+  const tc = useTranslations('common')
+
+  function timeAgo(dateStr: string): string {
+    const diff = Date.now() - new Date(dateStr).getTime()
+    const mins = Math.floor(diff / 60000)
+    if (mins < 1) return t('justNow')
+    if (mins < 60) return `${mins}m ago`
+    const hours = Math.floor(mins / 60)
+    if (hours < 24) return `${hours}h ago`
+    return `${Math.floor(hours / 24)}d ago`
+  }
   const panelRef = useRef<HTMLDivElement>(null)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
@@ -149,7 +152,7 @@ export function NotificationPanel({
       >
         <div className="flex items-center gap-2">
           <span style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-primary)' }}>
-            Notifications
+            {t('title')}
           </span>
           {unreadCount > 0 && (
             <span
@@ -179,7 +182,7 @@ export function NotificationPanel({
               padding: 0,
             }}
           >
-            Mark all read
+            {t('markAllRead')}
           </button>
         )}
       </div>
@@ -195,7 +198,7 @@ export function NotificationPanel({
               fontSize: '13px',
             }}
           >
-            Loading…
+            {tc('loading')}
           </div>
         ) : notifications.length === 0 ? (
           <div
@@ -211,10 +214,10 @@ export function NotificationPanel({
               style={{ margin: '0 auto 12px', display: 'block', color: 'var(--text-disabled)' }}
             />
             <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '4px' }}>
-              No notifications yet
+              {t('noNotifications')}
             </div>
             <div style={{ fontSize: '12px' }}>
-              We&apos;ll let you know when something needs your attention.
+              {t('noNotificationsDesc')}
             </div>
           </div>
         ) : (

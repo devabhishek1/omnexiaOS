@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -15,6 +16,8 @@ const LANGUAGES = [
 ]
 
 export default function AccountTab() {
+  const t = useTranslations('settings')
+  const tc = useTranslations('common')
   const supabase = createClient()
   const router = useRouter()
 
@@ -89,10 +92,10 @@ export default function AccountTab() {
 
       {/* Language */}
       <section style={sectionStyle}>
-        <h2 style={sectionTitleStyle}>Language</h2>
+        <h2 style={sectionTitleStyle}>{t('language')}</h2>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
           <div style={{ flex: 1 }}>
-            <label style={labelStyle}>Interface language</label>
+            <label style={labelStyle}>{t('interfaceLanguage')}</label>
             <select style={selectStyle} value={locale} onChange={e => setLocale(e.target.value)}>
               {LANGUAGES.map(l => (
                 <option key={l.code} value={l.code}>{l.flag} {l.label}</option>
@@ -100,26 +103,26 @@ export default function AccountTab() {
             </select>
           </div>
           <button onClick={handleSaveLocale} style={primaryBtnStyle} disabled={savingLocale}>
-            {savingLocale ? 'Saving…' : 'Save'}
+            {savingLocale ? tc('sending') : tc('save')}
           </button>
         </div>
       </section>
 
       {/* Password */}
       <section style={sectionStyle}>
-        <h2 style={sectionTitleStyle}>Password</h2>
+        <h2 style={sectionTitleStyle}>{t('changePassword')}</h2>
         <form onSubmit={handleUpdatePassword} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <div>
-            <label style={labelStyle}>New password</label>
+            <label style={labelStyle}>{t('newPassword')}</label>
             <input type="password" style={inputStyle} value={newPw} onChange={e => setNewPw(e.target.value)} minLength={8} required placeholder="Min. 8 characters" />
           </div>
           <div>
-            <label style={labelStyle}>Confirm new password</label>
+            <label style={labelStyle}>{t('confirmPassword')}</label>
             <input type="password" style={inputStyle} value={confirmPw} onChange={e => setConfirmPw(e.target.value)} required />
           </div>
           <div>
             <button type="submit" style={primaryBtnStyle} disabled={savingPw}>
-              {savingPw ? 'Updating…' : 'Update password'}
+              {savingPw ? tc('sending') : t('updatePassword')}
             </button>
           </div>
         </form>
@@ -127,10 +130,10 @@ export default function AccountTab() {
 
       {/* Billing */}
       <section style={sectionStyle}>
-        <h2 style={sectionTitleStyle}>Billing</h2>
+        <h2 style={sectionTitleStyle}>{t('billing')}</h2>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span style={{ fontSize: '12px', fontWeight: 600, color: '#7c3aed', background: '#ede9fe', border: '1px solid #ddd6fe', borderRadius: '4px', padding: '2px 8px' }}>Pro</span>
-          <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Current plan</span>
+          <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{t('currentPlan')}</span>
         </div>
         <div style={{ marginTop: '10px', position: 'relative', display: 'inline-block' }}>
           <button
@@ -138,7 +141,7 @@ export default function AccountTab() {
             disabled
             title="Coming soon"
           >
-            Manage subscription
+            {t('manageSubscription')}
           </button>
           <span style={{ position: 'absolute', top: -8, right: -8, fontSize: '9px', fontWeight: 600, color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: '4px', padding: '1px 5px' }}>Soon</span>
         </div>
@@ -149,13 +152,13 @@ export default function AccountTab() {
         <h2 style={sectionTitleStyle}>Data & Privacy</h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <div>
-            <button onClick={handleDownloadData} style={secondaryBtnStyle}>Download my data (GDPR)</button>
+            <button onClick={handleDownloadData} style={secondaryBtnStyle}>{t('downloadData')}</button>
             <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
               Export all your business data as a JSON file.
             </p>
           </div>
           <div>
-            <button onClick={() => setShowDeleteModal(true)} style={dangerBtnStyle}>Delete account</button>
+            <button onClick={() => setShowDeleteModal(true)} style={dangerBtnStyle}>{t('deleteAccount')}</button>
             <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
               30-day grace period before permanent deletion.
             </p>
@@ -178,13 +181,13 @@ export default function AccountTab() {
               placeholder="Type DELETE"
             />
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-              <button onClick={() => setShowDeleteModal(false)} style={secondaryBtnStyle}>Cancel</button>
+              <button onClick={() => setShowDeleteModal(false)} style={secondaryBtnStyle}>{tc('cancel')}</button>
               <button
                 onClick={handleDeleteAccount}
                 disabled={deleteConfirm !== 'DELETE'}
                 style={{ ...dangerBtnStyle, opacity: deleteConfirm !== 'DELETE' ? 0.5 : 1, cursor: deleteConfirm !== 'DELETE' ? 'not-allowed' : 'pointer' }}
               >
-                Delete account
+                {t('deleteAccount')}
               </button>
             </div>
           </div>

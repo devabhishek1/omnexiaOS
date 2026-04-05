@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useTranslations } from 'next-intl'
 import {
   DndContext,
   DragEndEvent,
@@ -39,18 +40,11 @@ interface Props {
 }
 
 const COLUMNS = [
-  { key: 'unpaid',  label: 'Unpaid',  color: 'var(--text-secondary)' },
-  { key: 'sent',    label: 'Sent',    color: '#D97706' },
-  { key: 'paid',    label: 'Paid',    color: 'var(--green)' },
-  { key: 'overdue', label: 'Overdue', color: '#DC2626' },
+  { key: 'unpaid',  labelKey: 'unpaid',  color: 'var(--text-secondary)' },
+  { key: 'sent',    labelKey: 'sent',    color: '#D97706' },
+  { key: 'paid',    labelKey: 'paid',    color: 'var(--green)' },
+  { key: 'overdue', labelKey: 'overdue', color: '#DC2626' },
 ]
-
-const STATUS_LABELS: Record<string, string> = {
-  unpaid: 'Unpaid',
-  sent: 'Sent',
-  paid: 'Paid',
-  overdue: 'Overdue',
-}
 
 function fmt(n: number, currency = 'EUR') {
   const curr = (currency ?? '').trim()
@@ -76,6 +70,7 @@ function StatusDropdown({
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const t = useTranslations('finance')
 
   useEffect(() => {
     if (!open) return
@@ -106,7 +101,7 @@ function StatusDropdown({
           color: 'var(--text-muted)',
         }}
       >
-        {STATUS_LABELS[invoice.status] ?? invoice.status} <ChevronDown size={10} />
+        {t(invoice.status as 'unpaid' | 'sent' | 'paid' | 'overdue') ?? invoice.status} <ChevronDown size={10} />
       </button>
       {open && (
         <div style={{
@@ -138,7 +133,7 @@ function StatusDropdown({
                 cursor: 'pointer',
               }}
             >
-              {col.label}
+              {t(col.labelKey)}
             </button>
           ))}
         </div>
@@ -153,6 +148,7 @@ function StatusDropdown({
 
 function FollowUpButton({ invoice }: { invoice: Invoice }) {
   const [generating, setGenerating] = useState(false)
+  const t = useTranslations('finance')
 
   async function handleFollowUp(e: React.MouseEvent) {
     e.stopPropagation()
@@ -186,7 +182,7 @@ function FollowUpButton({ invoice }: { invoice: Invoice }) {
       onMouseDown={e => e.stopPropagation()}
       style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 600, color: generating ? '#aaa' : '#DC2626', padding: '3px 8px', border: '1px solid #FECACA', borderRadius: '6px', backgroundColor: '#FEF2F2', cursor: generating ? 'not-allowed' : 'pointer', background: 'none', fontFamily: 'var(--font-dm-sans), sans-serif' }}
     >
-      {generating ? '✦ Generating…' : <><ExternalLink size={10} /> Follow up</>}
+      {generating ? `✦ ${t('followUpAI')}` : <><ExternalLink size={10} /> {t('followUp')}</>}
     </button>
   )
 }
@@ -287,6 +283,7 @@ function Column({
   onStatusChange: (id: string, status: string) => void
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: colKey })
+  const t = useTranslations('finance')
 
   return (
     <div style={{ flex: 1, minWidth: 0 }}>
@@ -310,7 +307,7 @@ function Column({
         }}
       >
         {invoices.length === 0 ? (
-          <p style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0', margin: 0 }}>No invoices</p>
+          <p style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0', margin: 0 }}>{t('noInvoices')}</p>
         ) : (
           invoices.map(inv => (
             <InvoiceCard key={inv.id} invoice={inv} onStatusChange={onStatusChange} />
@@ -326,6 +323,8 @@ function Column({
 // ---------------------------------------------------------------------------
 
 export default function InvoiceBoard({ invoices, countryCode, businessVatRate, sourceFilter, onStatusChange, onCreateInvoice, onImported }: Props) {
+  const t = useTranslations('finance')
+  const tc = useTranslations('common')
   const [modalOpen, setModalOpen] = useState(false)
   const [activeId, setActiveId] = useState<string | null>(null)
 
@@ -402,20 +401,20 @@ export default function InvoiceBoard({ invoices, countryCode, businessVatRate, s
   return (
     <div style={{ backgroundColor: 'var(--bg-surface)', borderRadius: '12px', padding: '20px 24px', border: '1px solid var(--border)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-        <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Invoices</p>
+        <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>{t('invoices')}</p>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button
             onClick={() => csvFileRef.current?.click()}
             style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 12px', borderRadius: '8px', backgroundColor: 'var(--bg-muted)', color: 'var(--text-secondary)', border: '1px solid var(--border)', fontSize: '12px', fontWeight: 500, cursor: 'pointer' }}
           >
-            <Upload size={13} /> Import CSV
+            <Upload size={13} /> {t('importCSV')}
           </button>
           <input ref={csvFileRef} type="file" accept=".csv,.xlsx,.xls" style={{ display: 'none' }} onChange={handleCsvPick} />
           <button
             onClick={() => setModalOpen(true)}
             style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', borderRadius: '8px', backgroundColor: 'var(--omnexia-accent)', color: '#fff', border: 'none', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
           >
-            <Plus size={14} /> Create Invoice
+            <Plus size={14} /> {t('createInvoice')}
           </button>
         </div>
       </div>
@@ -457,10 +456,10 @@ export default function InvoiceBoard({ invoices, countryCode, businessVatRate, s
               disabled={importing}
               style={{ padding: '7px 16px', borderRadius: '8px', backgroundColor: 'var(--omnexia-accent)', color: '#fff', border: 'none', fontSize: '12px', fontWeight: 600, cursor: importing ? 'not-allowed' : 'pointer', opacity: importing ? 0.7 : 1 }}
             >
-              {importing ? 'Importing…' : 'Confirm import'}
+              {importing ? tc('sending') : tc('confirm')}
             </button>
             <button onClick={() => { setCsvPreview(null); setCsvFile(null) }} style={{ padding: '7px 14px', borderRadius: '8px', background: 'var(--bg-muted)', color: 'var(--text-secondary)', border: '1px solid var(--border)', fontSize: '12px', cursor: 'pointer' }}>
-              Cancel
+              {tc('cancel')}
             </button>
           </div>
         </div>
@@ -472,7 +471,7 @@ export default function InvoiceBoard({ invoices, countryCode, businessVatRate, s
             <Column
               key={col.key}
               colKey={col.key}
-              label={col.label}
+              label={t(col.labelKey)}
               color={col.color}
               invoices={filtered.filter(inv => inv.status === col.key)}
               onStatusChange={applyStatusChange}

@@ -1,3 +1,4 @@
+import { useTranslations } from 'next-intl'
 import { Card } from '@/components/layout/Card'
 import { SectionTitle } from '@/components/layout/SectionTitle'
 
@@ -15,12 +16,6 @@ const statusColors: Record<EmployeeStatus, string> = {
   leave: 'var(--text-disabled)',
 }
 
-const statusLabels: Record<EmployeeStatus, string> = {
-  in: 'In',
-  partial: 'Partial',
-  leave: 'Leave',
-}
-
 const MOCK_EMPLOYEES: EmployeeChip[] = [
   { name: 'Sophie', initials: 'SO', status: 'in' },
   { name: 'Thomas', initials: 'TH', status: 'in' },
@@ -30,9 +25,17 @@ const MOCK_EMPLOYEES: EmployeeChip[] = [
 ]
 
 export function WhoIsIn() {
+  const t = useTranslations('overview')
+
+  const statusLabels: Record<EmployeeStatus, string> = {
+    in: t('statusIn'),
+    partial: t('statusPartial'),
+    leave: t('statusLeave'),
+  }
+
   return (
     <Card>
-      <SectionTitle>Who&apos;s In Today</SectionTitle>
+      <SectionTitle>{t('whoIsIn')}</SectionTitle>
       <div className="flex items-center flex-wrap" style={{ gap: '12px' }}>
         {MOCK_EMPLOYEES.map((emp) => (
           <div

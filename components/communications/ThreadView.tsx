@@ -12,6 +12,7 @@ import {
   Send,
   X,
   Trash2,
+  Paperclip,
 } from 'lucide-react'
 import type { Conversation, ConversationChannel, ThreadMessage } from './mock-data'
 
@@ -58,35 +59,87 @@ function Avatar({ name, size = 36 }: { name: string; size?: number }) {
 }
 
 // ---------------------------------------------------------------------------
-// Message bubble
+// Message bubble — WhatsApp-style
 // ---------------------------------------------------------------------------
+
+/** Renders body text: plain lines, and URLs as clickable links */
+function MessageBody({ text }: { text: string }) {
+  const urlPattern = /https?:\/\/[^\s)>]+/g
+  const parts = text.split('\n')
+  return (
+    <>
+      {parts.map((line, i) => {
+        if (!line.trim()) return <br key={i} />
+        const segments: React.ReactNode[] = []
+        let last = 0
+        let match
+        urlPattern.lastIndex = 0
+        while ((match = urlPattern.exec(line)) !== null) {
+          if (match.index > last) segments.push(line.slice(last, match.index))
+          const url = match[0].replace(/[.,;:!?)]+$/, '') // trim trailing punctuation
+          segments.push(
+            <a key={match.index} href={url} target="_blank" rel="noopener noreferrer"
+              style={{ color: 'inherit', textDecoration: 'underline', wordBreak: 'break-all', opacity: 0.85 }}>
+              {url}
+            </a>
+          )
+          last = match.index + url.length
+        }
+        if (last < line.length) segments.push(line.slice(last))
+        return <div key={i} style={{ lineHeight: 1.55 }}>{segments}</div>
+      })}
+    </>
+  )
+}
 
 function MessageBubble({ msg }: { msg: ThreadMessage }) {
   const isOut = msg.direction === 'outbound'
+
+  const bubbleStyle: React.CSSProperties = isOut
+    ? {
+        background: 'linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%)',
+        color: '#FFFFFF',
+        borderRadius: '16px 16px 4px 16px',
+        boxShadow: '0 2px 8px rgba(37,99,235,0.25)',
+      }
+    : {
+        background: '#FFFFFF',
+        color: '#1A1A1A',
+        borderRadius: '16px 16px 16px 4px',
+        border: '1px solid #E8E8E2',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+      }
+
   return (
-    <div style={{ display: 'flex', flexDirection: isOut ? 'row-reverse' : 'row', gap: '10px', alignItems: 'flex-start', marginBottom: '16px' }}>
-      <Avatar name={msg.senderName} size={32} />
-      <div style={{ maxWidth: '68%', display: 'flex', flexDirection: 'column', alignItems: isOut ? 'flex-end' : 'flex-start', gap: '4px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexDirection: isOut ? 'row-reverse' : 'row' }}>
-          <span style={{ fontSize: '12px', fontWeight: 600, color: '#1A1A1A' }}>{msg.senderName}</span>
-          {!isOut && <span style={{ fontSize: '11px', color: '#9CA3AF' }}>{msg.senderEmail}</span>}
-          <span style={{ fontSize: '11px', color: '#9CA3AF' }}>{msg.timestamp}</span>
+    <div style={{
+      display: 'flex',
+      flexDirection: isOut ? 'row-reverse' : 'row',
+      alignItems: 'flex-end',
+      gap: '8px',
+      marginBottom: '12px',
+      paddingLeft: isOut ? '60px' : '0',
+      paddingRight: isOut ? '0' : '60px',
+    }}>
+      {/* Avatar — only show for inbound */}
+      {!isOut && <Avatar name={msg.senderName} size={28} />}
+
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: isOut ? 'flex-end' : 'flex-start', gap: '3px', maxWidth: '72%' }}>
+        {/* Sender name — only for inbound */}
+        {!isOut && (
+          <span style={{ fontSize: '11px', fontWeight: 600, color: '#6B7280', paddingLeft: '4px' }}>
+            {msg.senderName}
+          </span>
+        )}
+
+        {/* Bubble */}
+        <div style={{ ...bubbleStyle, padding: '9px 13px', fontSize: '13px', lineHeight: 1.55, wordBreak: 'break-word' }}>
+          <MessageBody text={msg.body} />
         </div>
-        <div
-          style={{
-            background: isOut ? '#EFF6FF' : '#FFFFFF',
-            border: `1px solid ${isOut ? '#BFDBFE' : '#E8E8E2'}`,
-            borderRadius: isOut ? '12px 2px 12px 12px' : '2px 12px 12px 12px',
-            padding: '10px 14px',
-            fontSize: '13px',
-            color: '#374151',
-            lineHeight: 1.6,
-            whiteSpace: 'pre-wrap',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-          }}
-        >
-          {msg.body}
-        </div>
+
+        {/* Timestamp */}
+        <span style={{ fontSize: '10px', color: '#9CA3AF', paddingLeft: isOut ? 0 : '4px', paddingRight: isOut ? '4px' : 0 }}>
+          {msg.timestamp}
+        </span>
       </div>
     </div>
   )
@@ -180,107 +233,6 @@ function AIReplyPanel({
 }
 
 // ---------------------------------------------------------------------------
-// Reply Composer
-// ---------------------------------------------------------------------------
-
-function ReplyComposer({
-  businessName,
-  onSend,
-}: {
-  businessName: string
-  onSend: (text: string) => void
-}) {
-  const [text, setText] = useState('')
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-
-  function handleSend() {
-    if (!text.trim()) return
-    onSend(text)
-    setText('')
-  }
-
-  // Auto-resize textarea
-  useEffect(() => {
-    const el = textareaRef.current
-    if (!el) return
-    el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, 160)}px`
-  }, [text])
-
-  return (
-    <div
-      style={{
-        flexShrink: 0,
-        borderTop: '1px solid #E8E8E2',
-        background: '#FFFFFF',
-        padding: '12px 16px',
-      }}
-    >
-      {/* "Replying as" label — non-negotiable per spec */}
-      <p style={{ fontSize: '11px', color: '#9CA3AF', margin: '0 0 8px 0', fontWeight: 500 }}>
-        Replying as <strong style={{ color: '#6B6B6B' }}>{businessName}</strong> · via Gmail
-      </p>
-
-      <textarea
-        ref={textareaRef}
-        id="reply-composer"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        placeholder="Write a reply…"
-        rows={3}
-        style={{
-          width: '100%',
-          resize: 'none',
-          border: '1px solid #E8E8E2',
-          borderRadius: '8px',
-          padding: '10px 12px',
-          fontSize: '13px',
-          color: '#1A1A1A',
-          background: '#F9F9F6',
-          outline: 'none',
-          lineHeight: 1.6,
-          fontFamily: 'var(--font-dm-sans), sans-serif',
-          boxSizing: 'border-box',
-          transition: 'border-color 0.15s, box-shadow 0.15s',
-        }}
-        onFocus={(e) => {
-          e.currentTarget.style.borderColor = '#2563EB'
-          e.currentTarget.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.1)'
-          e.currentTarget.style.background = '#FFFFFF'
-        }}
-        onBlur={(e) => {
-          e.currentTarget.style.borderColor = '#E8E8E2'
-          e.currentTarget.style.boxShadow = 'none'
-          e.currentTarget.style.background = '#F9F9F6'
-        }}
-        onKeyDown={(e) => {
-          if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') handleSend()
-        }}
-      />
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
-        <span style={{ fontSize: '11px', color: '#BBBBBB' }}>⌘ + Enter to send</span>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            onClick={() => setText('')}
-            style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 14px', background: 'transparent', color: '#6B6B6B', border: '1px solid #E8E8E2', borderRadius: '7px', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif' }}
-          >
-            <Trash2 size={12} /> Discard
-          </button>
-          <button
-            onClick={handleSend}
-            disabled={!text.trim()}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 16px', background: text.trim() ? '#2563EB' : '#E8E8E2', color: text.trim() ? '#FFFFFF' : '#9CA3AF', border: 'none', borderRadius: '7px', fontSize: '13px', fontWeight: 600, cursor: text.trim() ? 'pointer' : 'default', fontFamily: 'var(--font-dm-sans), sans-serif', transition: 'background 0.15s' }}
-          >
-            <Send size={13} /> Send via Gmail
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
 // Main ThreadView
 // ---------------------------------------------------------------------------
 
@@ -292,7 +244,7 @@ interface ThreadViewProps {
   priorityOnly: boolean
   businessName: string
   onDismissAI: (id: string) => void
-  onSendReply: (id: string, text: string) => void
+  onSendReply: (id: string, text: string, files?: File[]) => void
   onMarkUnread: (id: string) => void
 }
 
@@ -432,7 +384,7 @@ export function ThreadView({ conversation, showAIPanel, priorityOnly, businessNa
       </div>
 
       {/* Message thread - scrollable */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', background: '#F9F9F6' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', background: '#F0F4F8' }}>
         {conversation.messages.length === 0 ? (
           <div style={{ textAlign: 'center', color: '#9CA3AF', fontSize: '13px', marginTop: '40px' }}>
             No messages in this thread yet.
@@ -463,8 +415,8 @@ export function ThreadView({ conversation, showAIPanel, priorityOnly, businessNa
         value={composerText}
         onChange={setComposerText}
         composerRef={composerRef}
-        onSend={(text) => {
-          onSendReply(conversation.id, text)
+        onSend={(text, files) => {
+          onSendReply(conversation.id, text, files)
           setComposerText('')
         }}
       />
@@ -486,9 +438,11 @@ function ReplyComposerControlled({
   value: string
   onChange: (v: string) => void
   composerRef: React.RefObject<HTMLTextAreaElement | null>
-  onSend: (text: string) => void
+  onSend: (text: string, files?: File[]) => void
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [attachments, setAttachments] = useState<File[]>([])
 
   useEffect(() => {
     const el = textareaRef.current
@@ -500,9 +454,25 @@ function ReplyComposerControlled({
   // Merge external ref
   useEffect(() => {
     if (composerRef && 'current' in composerRef) {
-      (composerRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = textareaRef.current
+      (composerRef as React.RefObject<HTMLTextAreaElement | null> & { current: HTMLTextAreaElement | null }).current = textareaRef.current
     }
   })
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    setAttachments((prev) => [...prev, ...files])
+    e.target.value = ''
+  }
+
+  function removeAttachment(idx: number) {
+    setAttachments((prev) => prev.filter((_, i) => i !== idx))
+  }
+
+  function handleSend() {
+    if (!value.trim() && attachments.length === 0) return
+    onSend(value, attachments.length > 0 ? attachments : undefined)
+    setAttachments([])
+  }
 
   return (
     <div style={{ flexShrink: 0, borderTop: '1px solid #E8E8E2', background: '#FFFFFF', padding: '12px 16px' }}>
@@ -527,22 +497,47 @@ function ReplyComposerControlled({
         }}
         onFocus={(e) => { e.currentTarget.style.borderColor = '#2563EB'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.1)'; e.currentTarget.style.background = '#FFFFFF' }}
         onBlur={(e) => { e.currentTarget.style.borderColor = '#E8E8E2'; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.background = '#F9F9F6' }}
-        onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { onSend(value) } }}
+        onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { handleSend() } }}
       />
 
+      {/* Attachment chips */}
+      {attachments.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
+          {attachments.map((f, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#EEF3FE', borderRadius: '6px', padding: '3px 8px', fontSize: '12px', color: '#2563EB' }}>
+              <Paperclip size={11} />
+              <span style={{ maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+              <button onClick={() => removeAttachment(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 0 2px', lineHeight: 1, color: '#2563EB', display: 'flex' }}>
+                <X size={11} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
-        <span style={{ fontSize: '11px', color: '#BBBBBB' }}>⌘ + Enter to send</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '11px', color: '#BBBBBB' }}>⌘ + Enter to send</span>
+          <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }} onChange={handleFileChange} />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            title="Attach files"
+            style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: '1px solid #E8E8E2', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', color: '#6B6B6B', fontSize: '12px', fontFamily: 'var(--font-dm-sans), sans-serif' }}
+          >
+            <Paperclip size={12} /> Attach
+          </button>
+        </div>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button
-            onClick={() => onChange('')}
+            onClick={() => { onChange(''); setAttachments([]) }}
             style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 14px', background: 'transparent', color: '#6B6B6B', border: '1px solid #E8E8E2', borderRadius: '7px', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif' }}
           >
             <Trash2 size={12} /> Discard
           </button>
           <button
-            onClick={() => { if (value.trim()) onSend(value) }}
-            disabled={!value.trim()}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 16px', background: value.trim() ? '#2563EB' : '#E8E8E2', color: value.trim() ? '#FFFFFF' : '#9CA3AF', border: 'none', borderRadius: '7px', fontSize: '13px', fontWeight: 600, cursor: value.trim() ? 'pointer' : 'default', fontFamily: 'var(--font-dm-sans), sans-serif', transition: 'background 0.15s' }}
+            onClick={handleSend}
+            disabled={!value.trim() && attachments.length === 0}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 16px', background: (value.trim() || attachments.length > 0) ? '#2563EB' : '#E8E8E2', color: (value.trim() || attachments.length > 0) ? '#FFFFFF' : '#9CA3AF', border: 'none', borderRadius: '7px', fontSize: '13px', fontWeight: 600, cursor: (value.trim() || attachments.length > 0) ? 'pointer' : 'default', fontFamily: 'var(--font-dm-sans), sans-serif', transition: 'background 0.15s' }}
           >
             <Send size={13} /> Send via Gmail
           </button>

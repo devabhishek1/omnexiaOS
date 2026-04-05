@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { AlertTriangle, X } from 'lucide-react'
 
 interface Alert {
@@ -21,6 +22,7 @@ const MOCK_ALERTS: Alert[] = [
 
 export function AlertStrip() {
   const [dismissed, setDismissed] = useState<Set<string>>(new Set())
+  const t = useTranslations('overview')
 
   const visible = MOCK_ALERTS.filter((a) => !dismissed.has(a.id))
 
@@ -66,11 +68,11 @@ export function AlertStrip() {
               borderRadius: '6px',
             }}
           >
-            View
+            {t('alertView')}
           </a>
           <button
             onClick={() => setDismissed((prev) => new Set([...prev, alert.id]))}
-            aria-label="Dismiss alert"
+            aria-label={t('alertDismiss')}
             style={{
               background: 'transparent',
               border: 'none',

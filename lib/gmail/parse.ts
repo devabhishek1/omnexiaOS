@@ -10,9 +10,92 @@ export interface ParsedGmailMessage {
   to: string
   subject: string
   date: string
-  bodyPreview: string   // First 200 chars
-  bodyCached: string    // First 5000 chars
+  bodyPreview: string   // First 200 chars, plain text
+  bodyCached: string    // First 5000 chars, plain text
   isUnread: boolean
+}
+
+/** Strips HTML and returns clean readable plain text, keeping links as label (url) */
+function htmlToPlainText(html: string): string {
+  return html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<head[^>]*>[\s\S]*?<\/head>/gi, '')
+    .replace(/<img[^>]*alt=["']([^"']*)["'][^>]*>/gi, '')  // remove images entirely
+    .replace(/<img[^>]*>/gi, '')
+    // Links: keep label + URL (label if meaningful, otherwise bare URL)
+    .replace(/<a\s[^>]*href=["']([^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi, (_, url, label) => {
+      const text = label.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
+      // Skip tracking pixels / empty anchors
+      if (!url || url.startsWith('mailto:') || url === '#') return text || ''
+      // If label is meaningful (not just the raw URL), show "label (url)"
+      const cleanUrl = url.trim()
+      if (text && text !== cleanUrl && text.length < 80) return `${text} (${cleanUrl})`
+      return cleanUrl
+    })
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<\/tr>/gi, '\n')
+    .replace(/<\/td>/gi, ' ')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<\/h[1-6]>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#\d+;/g, '')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/^ +/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+/** Cleans plain-text email bodies */
+function cleanPlainText(text: string): string {
+  return text
+    // Remove URLs wrapped in parens that are pure trackers (very long, encoded)
+    .replace(/\(\s*https?:\/\/[^\s)]{120,}\s*\)/g, '')
+    // Collapse separator lines (---, ***, ===) into a single divider
+    .replace(/^[-*=]{4,}$/gm, '─────')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/^ +/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+/**
+ * Strips quoted reply headers added by email clients:
+ *   "On Tue, Mar 31... <email@example.com> wrote:"
+ *   followed by lines starting with ">"
+ * This keeps only the freshly written portion of each message.
+ */
+export function stripQuotedReply(text: string): string {
+  // Match "On [date] [name/email] wrote:" patterns (Gmail, Outlook, Apple Mail all use variants)
+  const quoteHeaderPattern = /\n?On .{10,120}wrote:\s*\n[\s\S]*/i
+  const stripped = text.replace(quoteHeaderPattern, '').trim()
+
+  // Also strip lines that are purely ">" quoted text blocks
+  const lines = stripped.split('\n')
+  const withoutBlockquotes: string[] = []
+  let inQuoteBlock = false
+  for (const line of lines) {
+    if (line.startsWith('>')) {
+      inQuoteBlock = true
+      continue
+    }
+    if (inQuoteBlock && line.trim() === '') {
+      inQuoteBlock = false
+      continue
+    }
+    inQuoteBlock = false
+    withoutBlockquotes.push(line)
+  }
+
+  return withoutBlockquotes.join('\n').replace(/\n{3,}/g, '\n\n').trim()
 }
 
 /** Recursively extracts body text from a Gmail message payload */
@@ -21,27 +104,18 @@ function extractBody(payload: {
   body?: { data?: string; size?: number }
   parts?: unknown[]
 }): string {
-  // Direct body (text/plain or text/html at top level)
   if (payload.body?.data) {
     const decoded = Buffer.from(payload.body.data, 'base64url').toString('utf-8')
-    if (payload.mimeType === 'text/html') {
-      // Strip HTML tags for a plain-text preview
-      return decoded.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
-    }
-    return decoded
+    if (payload.mimeType === 'text/html') return htmlToPlainText(decoded)
+    return cleanPlainText(decoded)
   }
 
-  // Multipart: walk parts
   if (payload.parts && Array.isArray(payload.parts)) {
-    // Prefer text/plain over text/html
     const parts = payload.parts as typeof payload[]
     const plain = parts.find((p) => p.mimeType === 'text/plain')
     if (plain) return extractBody(plain)
-
     const html = parts.find((p) => p.mimeType === 'text/html')
     if (html) return extractBody(html)
-
-    // Recurse into any nested multipart
     for (const part of parts) {
       const result = extractBody(part)
       if (result) return result
@@ -51,11 +125,7 @@ function extractBody(payload: {
   return ''
 }
 
-/** Returns a header value from the Gmail message headers array */
-function getHeader(
-  headers: Array<{ name: string; value: string }>,
-  name: string
-): string {
+function getHeader(headers: Array<{ name: string; value: string }>, name: string): string {
   return headers.find((h) => h.name.toLowerCase() === name.toLowerCase())?.value ?? ''
 }
 
@@ -83,6 +153,5 @@ export function parseEmailAddress(raw: string): { name: string; email: string } 
   if (match) {
     return { name: match[1].trim().replace(/^"|"$/g, ''), email: match[2].trim() }
   }
-  // Plain email with no display name
   return { name: raw.trim(), email: raw.trim() }
 }
