@@ -1,6 +1,13 @@
 export type ConversationChannel = 'gmail' | 'instagram' | 'facebook'
 export type ConversationStatus = 'unread' | 'read' | 'replied' | 'pending'
 
+export interface MessageAttachment {
+  filename: string
+  mimeType: string
+  attachmentId: string
+  gmailMessageId: string
+}
+
 export interface ThreadMessage {
   id: string
   direction: 'inbound' | 'outbound'
@@ -8,6 +15,7 @@ export interface ThreadMessage {
   senderEmail: string
   body: string
   timestamp: string
+  attachments?: MessageAttachment[]
 }
 
 export interface Conversation {

@@ -115,7 +115,7 @@ export async function GET(request: Request) {
 
     // Seed inbox with last 50 messages (background, non-blocking)
     if (businessId) {
-      initialSync(providerToken, businessId).catch(e =>
+      initialSync(providerToken, businessId, user.email ?? '').catch(e =>
         console.error('[callback] initialSync failed (non-fatal):', e)
       )
     }

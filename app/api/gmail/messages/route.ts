@@ -9,7 +9,26 @@ function safeDecrypt(value: string | null | undefined): string {
   try {
     return isEncrypted(value) ? decrypt(value) : value
   } catch {
-    return value
+    return value ?? ''
+  }
+}
+
+interface AttachmentMeta {
+  filename: string
+  mimeType: string
+  attachmentId: string
+  gmailMessageId: string
+}
+
+/** Parses the <ATTACHMENTS>[...json...]</ATTACHMENTS> prefix written by sync.ts */
+function parseBodyWithAttachments(raw: string): { body: string; attachments: AttachmentMeta[] } {
+  const match = raw.match(/^<ATTACHMENTS>(\[[\s\S]*?\])<\/ATTACHMENTS>\n?/)
+  if (!match) return { body: raw, attachments: [] }
+  try {
+    const attachments: AttachmentMeta[] = JSON.parse(match[1])
+    return { body: raw.slice(match[0].length), attachments }
+  } catch {
+    return { body: raw, attachments: [] }
   }
 }
 
@@ -23,6 +42,15 @@ export async function GET(request: Request) {
   if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const admin = createAdminClient()
+
+  // Get user's Gmail address so we can correct direction for historically mis-classified messages
+  const { data: tokenRow } = await admin
+    .from('gmail_tokens')
+    .select('email')
+    .eq('user_id', user.id)
+    .single()
+  const gmailEmail = (tokenRow?.email ?? '').toLowerCase()
+
   const { data: messages, error } = await admin
     .from('messages')
     .select('*')
@@ -33,17 +61,30 @@ export async function GET(request: Request) {
 
   const decrypted = (messages ?? []).map((m) => {
     const rawBody = safeDecrypt(m.body_cached) || safeDecrypt(m.body_preview) || ''
-    // For inbound messages strip quoted reply trails so thread reads like a chat
-    const body = m.direction === 'inbound' ? stripQuotedReply(rawBody) : rawBody
+    const { body: bodyText, attachments } = parseBodyWithAttachments(rawBody)
+
+    const senderEmail = safeDecrypt(m.sender_email) || ''
+
+    // Runtime direction correction: if the sender is the logged-in Gmail user,
+    // treat as outbound regardless of what the DB says (fixes historically mis-stored rows)
+    const direction: 'inbound' | 'outbound' =
+      gmailEmail && senderEmail.toLowerCase() === gmailEmail
+        ? 'outbound'
+        : (m.direction as 'inbound' | 'outbound') ?? 'inbound'
+
+    // Strip quoted reply trails only for inbound messages
+    const body = direction === 'inbound' ? stripQuotedReply(bodyText) : bodyText
+
     return {
       id: m.id,
-      direction: m.direction,
-      senderName: safeDecrypt(m.sender_name) || m.sender_email || 'Unknown',
-      senderEmail: safeDecrypt(m.sender_email) || '',
+      direction,
+      senderName: safeDecrypt(m.sender_name) || senderEmail || 'Unknown',
+      senderEmail,
       body,
       timestamp: m.received_at
         ? new Date(m.received_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
         : '',
+      attachments: attachments.length > 0 ? attachments : undefined,
     }
   })
 

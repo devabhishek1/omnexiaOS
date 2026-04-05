@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
+import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { FilterBar } from '@/components/communications/FilterBar'
 import { ConversationList } from '@/components/communications/ConversationList'
@@ -41,6 +42,7 @@ function adaptConversation(row: any, messages: Conversation['messages'] = []): C
 // ---------------------------------------------------------------------------
 
 export default function CommunicationsPage() {
+  const t = useTranslations('communications')
   const supabase = createClient()
 
   const [conversations, setConversations] = useState<Conversation[]>([])
@@ -312,7 +314,7 @@ export default function CommunicationsPage() {
 
         {loading ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ color: '#9CA3AF', fontSize: '13px' }}>Loading inbox…</span>
+            <span style={{ color: '#9CA3AF', fontSize: '13px' }}>{t('syncingInbox')}</span>
           </div>
         ) : (
           <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
@@ -348,6 +350,7 @@ export default function CommunicationsPage() {
               showAIPanel={showAIPanel}
               priorityOnly={priorityOnly}
               businessName={businessName}
+              currentUserEmail={currentUserEmail}
               onDismissAI={handleDismissAI}
               onSendReply={handleSendReply}
               onMarkUnread={handleMarkUnread}

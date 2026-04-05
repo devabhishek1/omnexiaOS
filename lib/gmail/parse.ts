@@ -3,6 +3,12 @@
  * Parses a raw Gmail API message object into a structured format.
  */
 
+export interface GmailAttachment {
+  filename: string
+  mimeType: string
+  attachmentId: string
+}
+
 export interface ParsedGmailMessage {
   gmailMessageId: string
   threadId: string
@@ -13,6 +19,7 @@ export interface ParsedGmailMessage {
   bodyPreview: string   // First 200 chars, plain text
   bodyCached: string    // First 5000 chars, plain text
   isUnread: boolean
+  attachments: GmailAttachment[]
 }
 
 /** Strips HTML and returns clean readable plain text, keeping links as label (url) */
@@ -98,6 +105,25 @@ export function stripQuotedReply(text: string): string {
   return withoutBlockquotes.join('\n').replace(/\n{3,}/g, '\n\n').trim()
 }
 
+/** Recursively extracts attachment metadata from a Gmail message payload */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractAttachments(payload: any): GmailAttachment[] {
+  const result: GmailAttachment[] = []
+  if (payload.filename && payload.body?.attachmentId) {
+    result.push({
+      filename: payload.filename,
+      mimeType: payload.mimeType || 'application/octet-stream',
+      attachmentId: payload.body.attachmentId,
+    })
+  }
+  if (payload.parts && Array.isArray(payload.parts)) {
+    for (const part of payload.parts) {
+      result.push(...extractAttachments(part))
+    }
+  }
+  return result
+}
+
 /** Recursively extracts body text from a Gmail message payload */
 function extractBody(payload: {
   mimeType?: string
@@ -105,6 +131,8 @@ function extractBody(payload: {
   parts?: unknown[]
 }): string {
   if (payload.body?.data) {
+    // Skip binary/attachment parts — only extract text content
+    if (payload.mimeType && !payload.mimeType.startsWith('text/')) return ''
     const decoded = Buffer.from(payload.body.data, 'base64url').toString('utf-8')
     if (payload.mimeType === 'text/html') return htmlToPlainText(decoded)
     return cleanPlainText(decoded)
@@ -133,6 +161,7 @@ function getHeader(headers: Array<{ name: string; value: string }>, name: string
 export function parseGmailMessage(msg: any): ParsedGmailMessage {
   const headers: Array<{ name: string; value: string }> = msg.payload?.headers ?? []
   const body = extractBody(msg.payload ?? {})
+  const attachments = extractAttachments(msg.payload ?? {})
 
   return {
     gmailMessageId: msg.id,
@@ -144,6 +173,7 @@ export function parseGmailMessage(msg: any): ParsedGmailMessage {
     bodyPreview: body.slice(0, 200),
     bodyCached: body.slice(0, 5000),
     isUnread: (msg.labelIds ?? []).includes('UNREAD'),
+    attachments,
   }
 }
 

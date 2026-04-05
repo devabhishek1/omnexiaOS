@@ -23,7 +23,16 @@ export async function POST(request: Request) {
     if (!conv?.external_id) return NextResponse.json({ ok: true })
 
     const accessToken = await getValidAccessToken(user.id)
-    await fetchFullThread(accessToken, conv.external_id, conv.business_id)
+
+    // Get the user's Gmail address so we can correctly classify direction
+    const { data: tokenRow } = await admin
+      .from('gmail_tokens')
+      .select('email')
+      .eq('user_id', user.id)
+      .single()
+    const gmailEmail = tokenRow?.email ?? ''
+
+    await fetchFullThread(accessToken, conv.external_id, conv.business_id, gmailEmail)
 
     return NextResponse.json({ ok: true })
   } catch (err) {

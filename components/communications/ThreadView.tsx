@@ -1,6 +1,8 @@
 'use client'
 
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
+import ReactDOM from 'react-dom'
+import { useTranslations } from 'next-intl'
 import {
   Inbox,
   MoreHorizontal,
@@ -13,8 +15,10 @@ import {
   X,
   Trash2,
   Paperclip,
+  FileText,
+  Download,
 } from 'lucide-react'
-import type { Conversation, ConversationChannel, ThreadMessage } from './mock-data'
+import type { Conversation, ConversationChannel, MessageAttachment, ThreadMessage } from './mock-data'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -92,6 +96,217 @@ function MessageBody({ text }: { text: string }) {
   )
 }
 
+// ---------------------------------------------------------------------------
+// Image lightbox — fullscreen overlay, closes on backdrop click or Escape
+// ---------------------------------------------------------------------------
+
+function ImageLightbox({ src, filename, onClose }: { src: string; filename: string; onClose: () => void }) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
+
+  return ReactDOM.createPortal(
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0,
+        background: 'rgba(0,0,0,0.88)',
+        zIndex: 9999,
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+      }}
+    >
+      {/* Top bar */}
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          position: 'fixed', top: 0, left: 0, right: 0, height: '52px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '0 20px', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)',
+        }}
+      >
+        <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: '13px', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '55%' }}>
+          {filename}
+        </span>
+        <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+          <a
+            href={src}
+            download={filename}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '5px',
+              padding: '5px 12px',
+              background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.22)',
+              borderRadius: '7px', color: '#FFFFFF', fontSize: '12px', fontWeight: 500,
+              textDecoration: 'none', fontFamily: 'var(--font-dm-sans), sans-serif',
+            }}
+          >
+            <Download size={13} /> Download
+          </a>
+          <button
+            onClick={onClose}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: '32px', height: '32px',
+              background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)',
+              borderRadius: '7px', color: '#FFFFFF', cursor: 'pointer',
+            }}
+          >
+            <X size={15} />
+          </button>
+        </div>
+      </div>
+
+      {/* Image — click on it does NOT close */}
+      <img
+        src={src}
+        alt={filename}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          maxWidth: '90vw', maxHeight: 'calc(90vh - 52px)',
+          objectFit: 'contain', borderRadius: '6px',
+          userSelect: 'none', display: 'block',
+        }}
+      />
+
+      <span style={{ position: 'fixed', bottom: '14px', color: 'rgba(255,255,255,0.3)', fontSize: '11px', pointerEvents: 'none' }}>
+        Click outside or press Esc to close
+      </span>
+    </div>,
+    document.body
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Helpers for file chips
+// ---------------------------------------------------------------------------
+
+function fileEmoji(mimeType: string, filename: string): string {
+  const ext = filename.split('.').pop()?.toLowerCase() ?? ''
+  if (mimeType === 'application/pdf' || ext === 'pdf') return '📄'
+  if (mimeType.startsWith('image/')) return '🖼️'
+  if (['doc', 'docx'].includes(ext)) return '📝'
+  if (['xls', 'xlsx', 'csv'].includes(ext)) return '📊'
+  if (['ppt', 'pptx'].includes(ext)) return '📋'
+  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return '🗜️'
+  if (['mp4', 'mov', 'avi', 'mkv'].includes(ext)) return '🎬'
+  if (['mp3', 'wav', 'm4a', 'ogg'].includes(ext)) return '🎵'
+  if (['md', 'txt', 'log'].includes(ext)) return '📃'
+  return '📎'
+}
+
+async function downloadBlob(att: MessageAttachment) {
+  const res = await fetch(`/api/gmail/attachment?gmailMessageId=${encodeURIComponent(att.gmailMessageId)}&attachmentId=${encodeURIComponent(att.attachmentId)}`)
+  const { data } = await res.json()
+  if (!data) return
+  const byteStr = atob(data)
+  const ab = new ArrayBuffer(byteStr.length)
+  const ia = new Uint8Array(ab)
+  for (let i = 0; i < byteStr.length; i++) ia[i] = byteStr.charCodeAt(i)
+  const blob = new Blob([ab], { type: att.mimeType || 'application/octet-stream' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = att.filename; a.click()
+  URL.revokeObjectURL(url)
+}
+
+// ---------------------------------------------------------------------------
+// Attachment item — free-standing (no bubble wrapper)
+// ---------------------------------------------------------------------------
+
+function AttachmentItem({ att, isOut }: { att: MessageAttachment; isOut: boolean }) {
+  const [imgSrc, setImgSrc] = useState<string | null>(null)
+  const [loadState, setLoadState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [downloading, setDownloading] = useState(false)
+
+  const isImage = att.mimeType.startsWith('image/')
+
+  const fetchImage = useCallback(() => {
+    if (!isImage || loadState !== 'idle') return
+    setLoadState('loading')
+    fetch(`/api/gmail/attachment?gmailMessageId=${encodeURIComponent(att.gmailMessageId)}&attachmentId=${encodeURIComponent(att.attachmentId)}`)
+      .then((r) => r.json())
+      .then(({ data }) => {
+        if (data) { setImgSrc(`data:${att.mimeType};base64,${data}`); setLoadState('done') }
+        else setLoadState('error')
+      })
+      .catch(() => setLoadState('error'))
+  }, [att, isImage, loadState])
+
+  useEffect(() => { fetchImage() }, [fetchImage])
+
+  // --- Image ---
+  if (isImage) {
+    if (loadState === 'loading' || loadState === 'idle') {
+      return (
+        <div style={{ width: '220px', height: '140px', borderRadius: '10px', background: '#F0F0F0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: '#9CA3AF' }}>
+          Loading…
+        </div>
+      )
+    }
+    if (loadState === 'done' && imgSrc) {
+      return (
+        <>
+          <img
+            src={imgSrc}
+            alt={att.filename}
+            onClick={() => setLightboxOpen(true)}
+            title="Click to enlarge"
+            style={{
+              maxWidth: '260px', maxHeight: '220px',
+              borderRadius: '10px', display: 'block',
+              objectFit: 'cover', cursor: 'zoom-in',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.14)',
+              transition: 'transform 0.15s, box-shadow 0.15s',
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLImageElement).style.transform = 'scale(1.02)'; (e.currentTarget as HTMLImageElement).style.boxShadow = '0 4px 18px rgba(0,0,0,0.22)' }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLImageElement).style.transform = 'scale(1)'; (e.currentTarget as HTMLImageElement).style.boxShadow = '0 2px 10px rgba(0,0,0,0.14)' }}
+          />
+          {lightboxOpen && <ImageLightbox src={imgSrc} filename={att.filename} onClose={() => setLightboxOpen(false)} />}
+        </>
+      )
+    }
+    // Image load failed — fall through to file chip
+  }
+
+  // --- File chip (non-image or failed image) ---
+  return (
+    <button
+      onClick={async () => {
+        if (downloading) return
+        setDownloading(true)
+        try { await downloadBlob(att) } finally { setDownloading(false) }
+      }}
+      title={`Download ${att.filename}`}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: '8px',
+        padding: '8px 14px',
+        borderRadius: '10px',
+        background: isOut ? '#EEF3FE' : '#F3F4F6',
+        color: isOut ? '#2563EB' : '#374151',
+        fontSize: '12px', fontWeight: 500,
+        border: `1px solid ${isOut ? '#BFDBFE' : '#E5E7EB'}`,
+        cursor: downloading ? 'wait' : 'pointer',
+        fontFamily: 'var(--font-dm-sans), sans-serif',
+        maxWidth: '280px',
+        transition: 'background 0.15s',
+      }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = isOut ? '#DBEAFE' : '#E9EAEC' }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = isOut ? '#EEF3FE' : '#F3F4F6' }}
+    >
+      <span style={{ fontSize: '16px', lineHeight: 1, flexShrink: 0 }}>{fileEmoji(att.mimeType, att.filename)}</span>
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, textAlign: 'left' }}>{att.filename}</span>
+      {downloading
+        ? <span style={{ fontSize: '10px', color: '#9CA3AF', flexShrink: 0 }}>…</span>
+        : <Download size={11} style={{ flexShrink: 0, opacity: 0.5 }} />
+      }
+    </button>
+  )
+}
+
 function MessageBubble({ msg }: { msg: ThreadMessage }) {
   const isOut = msg.direction === 'outbound'
 
@@ -110,6 +325,9 @@ function MessageBubble({ msg }: { msg: ThreadMessage }) {
         boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
       }
 
+  const hasBody = msg.body.trim().length > 0
+  const hasAttachments = (msg.attachments?.length ?? 0) > 0
+
   return (
     <div style={{
       display: 'flex',
@@ -120,10 +338,10 @@ function MessageBubble({ msg }: { msg: ThreadMessage }) {
       paddingLeft: isOut ? '60px' : '0',
       paddingRight: isOut ? '0' : '60px',
     }}>
-      {/* Avatar — only show for inbound */}
+      {/* Avatar — only for inbound */}
       {!isOut && <Avatar name={msg.senderName} size={28} />}
 
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: isOut ? 'flex-end' : 'flex-start', gap: '3px', maxWidth: '72%' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: isOut ? 'flex-end' : 'flex-start', gap: '5px', maxWidth: '72%' }}>
         {/* Sender name — only for inbound */}
         {!isOut && (
           <span style={{ fontSize: '11px', fontWeight: 600, color: '#6B7280', paddingLeft: '4px' }}>
@@ -131,10 +349,21 @@ function MessageBubble({ msg }: { msg: ThreadMessage }) {
           </span>
         )}
 
-        {/* Bubble */}
-        <div style={{ ...bubbleStyle, padding: '9px 13px', fontSize: '13px', lineHeight: 1.55, wordBreak: 'break-word' }}>
-          <MessageBody text={msg.body} />
-        </div>
+        {/* Text bubble — only when there is body text */}
+        {hasBody && (
+          <div style={{ ...bubbleStyle, padding: '9px 13px', fontSize: '13px', lineHeight: 1.55, wordBreak: 'break-word' }}>
+            <MessageBody text={msg.body} />
+          </div>
+        )}
+
+        {/* Attachments — free-standing, never inside a bubble */}
+        {hasAttachments && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', alignItems: isOut ? 'flex-end' : 'flex-start' }}>
+            {msg.attachments!.map((att, i) => (
+              <AttachmentItem key={i} att={att} isOut={isOut} />
+            ))}
+          </div>
+        )}
 
         {/* Timestamp */}
         <span style={{ fontSize: '10px', color: '#9CA3AF', paddingLeft: isOut ? 0 : '4px', paddingRight: isOut ? '4px' : 0 }}>
@@ -243,12 +472,14 @@ interface ThreadViewProps {
   showAIPanel: boolean
   priorityOnly: boolean
   businessName: string
+  currentUserEmail: string
   onDismissAI: (id: string) => void
   onSendReply: (id: string, text: string, files?: File[]) => void
   onMarkUnread: (id: string) => void
 }
 
-export function ThreadView({ conversation, showAIPanel, priorityOnly, businessName, onDismissAI, onSendReply, onMarkUnread }: ThreadViewProps) {
+export function ThreadView({ conversation, showAIPanel, priorityOnly, businessName, currentUserEmail, onDismissAI, onSendReply, onMarkUnread }: ThreadViewProps) {
+  const t = useTranslations('communications')
   const [assignedTo, setAssignedTo] = useState('Unassigned')
   const [showAssignDropdown, setShowAssignDropdown] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
@@ -256,6 +487,22 @@ export function ThreadView({ conversation, showAIPanel, priorityOnly, businessNa
 
   // Keep local composer state available for "Use this draft"
   const composerRef = useRef<HTMLTextAreaElement | null>(null)
+
+  // ALL hooks must be called before any early returns (Rules of Hooks).
+  // The "other party" in this conversation should never be the logged-in user.
+  // If the DB stored the user's own email as participant (a bug in early syncs),
+  // fall back to the first inbound message's sender.
+  const otherParty = React.useMemo(() => {
+    if (!conversation) return { name: '', email: '' }
+    if (
+      currentUserEmail &&
+      conversation.sender.email.toLowerCase() === currentUserEmail.toLowerCase()
+    ) {
+      const firstInbound = conversation.messages.find((m) => m.direction === 'inbound')
+      if (firstInbound) return { name: firstInbound.senderName, email: firstInbound.senderEmail }
+    }
+    return { name: conversation.sender.name, email: conversation.sender.email }
+  }, [conversation, currentUserEmail])
 
   // Empty: priority filter but no results
   if (!conversation && priorityOnly) {
@@ -275,8 +522,8 @@ export function ThreadView({ conversation, showAIPanel, priorityOnly, businessNa
         <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: '#F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '4px' }}>
           <Inbox size={28} color="#9CA3AF" />
         </div>
-        <p style={{ fontSize: '15px', fontWeight: 700, color: '#1A1A1A', margin: 0 }}>Select a conversation to read</p>
-        <p style={{ fontSize: '13px', color: '#9CA3AF', margin: 0 }}>Choose a message from the left panel</p>
+        <p style={{ fontSize: '15px', fontWeight: 700, color: '#1A1A1A', margin: 0 }}>{t('selectConversation')}</p>
+        <p style={{ fontSize: '13px', color: '#9CA3AF', margin: 0 }}>{t('chooseMessage')}</p>
       </div>
     )
   }
@@ -373,12 +620,14 @@ export function ThreadView({ conversation, showAIPanel, priorityOnly, businessNa
         </div>
       </div>
 
-      {/* Sender info bar */}
+      {/* Sender info bar — shows the OTHER party, never the logged-in user */}
       <div style={{ padding: '10px 20px', borderBottom: '1px solid #E8E8E2', background: '#FAFAFA', display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-        <Avatar name={conversation.sender.name} size={32} />
+        <Avatar name={otherParty.name} size={32} />
         <div>
-          <span style={{ fontSize: '13px', fontWeight: 600, color: '#1A1A1A' }}>{conversation.sender.name}</span>
-          <span style={{ fontSize: '12px', color: '#9CA3AF', marginLeft: '6px' }}>&lt;{conversation.sender.email}&gt;</span>
+          <span style={{ fontSize: '13px', fontWeight: 600, color: '#1A1A1A' }}>{otherParty.name}</span>
+          {otherParty.email && (
+            <span style={{ fontSize: '12px', color: '#9CA3AF', marginLeft: '6px' }}>&lt;{otherParty.email}&gt;</span>
+          )}
         </div>
         <span style={{ marginLeft: 'auto', fontSize: '11px', color: '#9CA3AF' }}>via Gmail · {conversation.timestamp}</span>
       </div>

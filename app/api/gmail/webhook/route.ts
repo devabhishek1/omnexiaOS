@@ -60,7 +60,7 @@ export async function POST(request: Request) {
     for (const msg of newMessages) {
       try {
         const parsed = parseGmailMessage(msg)
-        await upsertMessage(parsed, businessId)
+        await upsertMessage(parsed, businessId, emailAddress)
 
         // Run urgency flagging in background — don't await so webhook stays fast
         if (parsed.subject || parsed.bodyPreview) {

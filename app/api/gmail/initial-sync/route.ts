@@ -30,7 +30,16 @@ export async function POST() {
     }
 
     const accessToken = await getValidAccessToken(user.id)
-    const count = await initialSync(accessToken, userRow.business_id)
+
+    // Get the user's Gmail address so direction is correctly classified
+    const { data: tokenRow } = await admin
+      .from('gmail_tokens')
+      .select('email')
+      .eq('user_id', user.id)
+      .single()
+    const gmailEmail = tokenRow?.email ?? ''
+
+    const count = await initialSync(accessToken, userRow.business_id, gmailEmail)
 
     return NextResponse.json({ ok: true, synced: count })
   } catch (err) {
