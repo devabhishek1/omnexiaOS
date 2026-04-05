@@ -200,6 +200,7 @@ function InvoiceCard({
   isDragging?: boolean
   onStatusChange: (id: string, status: string) => void
 }) {
+  const tf = useTranslations('finance')
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: invoice.id,
     disabled: invoice.source === 'pennylane',
@@ -250,14 +251,14 @@ function InvoiceCard({
       {/* Due date */}
       {invoice.due_date && (
         <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>
-          Due {new Date(invoice.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+          {tf('invoiceDue', { date: new Date(invoice.due_date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) })}
         </p>
       )}
 
       {/* Overdue warning */}
       {invoice.status === 'overdue' && overdueDays !== null && overdueDays > 0 && (
         <p style={{ fontSize: '11px', color: '#DC2626', fontWeight: 600, margin: '4px 0 0' }}>
-          {overdueDays} day{overdueDays !== 1 ? 's' : ''} overdue
+          {tf('daysOverdue', { days: overdueDays })}
         </p>
       )}
 

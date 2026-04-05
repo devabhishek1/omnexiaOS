@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { startOfWeek, endOfWeek, format } from 'date-fns'
 import WeekNavigator from '@/components/planning/WeekNavigator'
@@ -15,6 +16,7 @@ interface Holiday { country_code: string; date: string; name: string }
 interface TimeOffRequest { id: string; employee_id: string; start_date: string; end_date: string; reason: string | null; status: string; created_at: string }
 
 export default function PlanningPage() {
+  const t = useTranslations('planning')
   const [view, setView] = useState<'weekly' | 'monthly'>('weekly')
   const [week, setWeek] = useState(new Date())
   const [month, setMonth] = useState(new Date())
@@ -122,14 +124,14 @@ export default function PlanningPage() {
   if (loading) {
     return (
       <div style={{ padding: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
-        <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Loading schedule…</p>
+        <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{t('loadingSchedule')}</p>
       </div>
     )
   }
 
   return (
     <div style={{ padding: '24px 32px', maxWidth: '1400px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      <h1 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>Planning</h1>
+      <h1 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>{t('title')}</h1>
 
       <WeekNavigator
         week={week}

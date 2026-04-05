@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import DataSourceBar from '@/components/finance/DataSourceBar'
 import KPIBar from '@/components/finance/KPIBar'
@@ -49,6 +50,7 @@ interface Business {
 }
 
 export default function FinancePage() {
+  const t = useTranslations('finance')
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [integration, setIntegration] = useState<Integration | null>(null)
@@ -148,7 +150,7 @@ export default function FinancePage() {
   if (loading) {
     return (
       <div style={{ padding: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
-        <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Loading finance data…</p>
+        <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{t('loadingFinance')}</p>
       </div>
     )
   }
@@ -161,7 +163,7 @@ export default function FinancePage() {
     <div style={{ padding: '24px 32px', maxWidth: '1400px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <h1 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>Finance</h1>
+        <h1 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>{t('title')}</h1>
         <div style={{ display: 'flex', gap: '8px' }}>
           <div style={{ position: 'relative' }}>
             <button
@@ -172,13 +174,13 @@ export default function FinancePage() {
                 if (menu) menu.style.display = menu.style.display === 'none' ? 'flex' : 'none'
               }}
             >
-              <Download size={14} /> Export
+              <Download size={14} /> {t('exportButton')}
             </button>
             <div id="export-menu" style={{ display: 'none', flexDirection: 'column', position: 'absolute', right: 0, top: '100%', marginTop: '4px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '8px', boxShadow: '0 4px 16px rgba(0,0,0,0.1)', zIndex: 50, minWidth: '180px' }}>
               {[
-                { label: 'Export Invoices (CSV)', fn: exportInvoicesCSV },
-                { label: 'Export Expenses (CSV)', fn: () => { const menu = document.getElementById('export-menu'); if (menu) menu.style.display = 'none'; document.querySelector<HTMLButtonElement>('[data-export="expenses"]')?.click() } },
-                { label: 'Export Full Report (CSV)', fn: exportFullCSV },
+                { label: t('exportInvoicesCSV'), fn: exportInvoicesCSV },
+                { label: t('exportExpensesCSV'), fn: () => { const menu = document.getElementById('export-menu'); if (menu) menu.style.display = 'none'; document.querySelector<HTMLButtonElement>('[data-export="expenses"]')?.click() } },
+                { label: t('exportFullCSV'), fn: exportFullCSV },
               ].map(item => (
                 <button key={item.label} onClick={() => { item.fn(); const menu = document.getElementById('export-menu'); if (menu) menu.style.display = 'none' }} style={{ padding: '10px 14px', background: 'none', border: 'none', textAlign: 'left', fontSize: '13px', cursor: 'pointer', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
                   {item.label}

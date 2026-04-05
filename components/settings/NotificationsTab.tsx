@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { Switch } from '@/components/ui/switch'
 import { toast } from 'sonner'
@@ -28,6 +29,8 @@ const DEFAULTS: NotifPrefs = {
 }
 
 export default function NotificationsTab() {
+  const t = useTranslations('settings')
+  const tc = useTranslations('common')
   const supabase = createClient()
   const [prefs, setPrefs] = useState<NotifPrefs>(DEFAULTS)
   const [userId, setUserId] = useState<string | null>(null)
@@ -61,19 +64,19 @@ export default function NotificationsTab() {
     toast.success('Preferences saved')
   }
 
-  if (loading) return <div style={{ color: 'var(--text-muted)', fontSize: '13px', padding: '20px 0' }}>Loading…</div>
+  if (loading) return <div style={{ color: 'var(--text-muted)', fontSize: '13px', padding: '20px 0' }}>{tc('loading')}</div>
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '560px' }}>
 
       {/* Daily AI Digest */}
-      <NotifSection title="Daily AI Digest" description="Morning summary of your business — emails, invoices, shifts.">
-        <Row label="Enable daily digest">
+      <NotifSection title={t('dailyDigestTitle')} description={t('dailyDigestDesc')}>
+        <Row label={t('enableDailyDigest')}>
           <Switch checked={prefs.digest_enabled} onCheckedChange={v => set('digest_enabled', v)} />
         </Row>
         {prefs.digest_enabled && (
           <>
-            <Row label="Delivery time">
+            <Row label={t('deliveryTime')}>
               <input
                 type="time"
                 value={prefs.digest_time}
@@ -81,10 +84,10 @@ export default function NotificationsTab() {
                 style={inputStyle}
               />
             </Row>
-            <Row label="Send by email">
+            <Row label={t('sendByEmail')}>
               <Switch checked={prefs.digest_email} onCheckedChange={v => set('digest_email', v)} />
             </Row>
-            <Row label="Show in-app">
+            <Row label={t('showInApp')}>
               <Switch checked={prefs.digest_in_app} onCheckedChange={v => set('digest_in_app', v)} />
             </Row>
           </>
@@ -92,12 +95,12 @@ export default function NotificationsTab() {
       </NotifSection>
 
       {/* Invoice Overdue Alerts */}
-      <NotifSection title="Invoice Overdue Alerts" description="Get notified when invoices become overdue.">
-        <Row label="Enable overdue alerts">
+      <NotifSection title={t('overdueAlertsTitle')} description={t('overdueAlertsDesc')}>
+        <Row label={t('enableOverdueAlerts')}>
           <Switch checked={prefs.overdue_enabled} onCheckedChange={v => set('overdue_enabled', v)} />
         </Row>
         {prefs.overdue_enabled && (
-          <Row label="Trigger after (days overdue)">
+          <Row label={t('triggerAfterDays')}>
             <input
               type="number"
               min={1}
@@ -111,22 +114,22 @@ export default function NotificationsTab() {
       </NotifSection>
 
       {/* New Message Alerts */}
-      <NotifSection title="New Message Alerts" description="In-app notification when a new email or message arrives.">
-        <Row label="Enable message alerts">
+      <NotifSection title={t('messageAlertsTitle')} description={t('messageAlertsDesc')}>
+        <Row label={t('enableMessageAlerts')}>
           <Switch checked={prefs.messages_enabled} onCheckedChange={v => set('messages_enabled', v)} />
         </Row>
       </NotifSection>
 
       {/* Pennylane Sync Alerts */}
-      <NotifSection title="Pennylane Sync Alerts" description="Notify when sync fails or finds new overdue invoices.">
-        <Row label="Enable sync alerts">
+      <NotifSection title={t('pennylaneAlertsTitle')} description={t('pennylaneAlertsDesc')}>
+        <Row label={t('enableSyncAlerts')}>
           <Switch checked={prefs.pennylane_sync_enabled} onCheckedChange={v => set('pennylane_sync_enabled', v)} />
         </Row>
       </NotifSection>
 
       <div>
         <button onClick={handleSave} style={primaryBtnStyle} disabled={saving}>
-          {saving ? 'Saving…' : 'Save preferences'}
+          {saving ? t('savingPreferences') : t('savePreferences')}
         </button>
       </div>
     </div>

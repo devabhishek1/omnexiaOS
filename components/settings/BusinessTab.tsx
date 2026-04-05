@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { EU_VAT_RATES } from '@/lib/utils/vat'
 import { toast } from 'sonner'
@@ -34,6 +35,8 @@ type FormState = {
 }
 
 export default function BusinessTab() {
+  const t = useTranslations('settings')
+  const tc = useTranslations('common')
   const supabase = createClient()
   const fileRef = useRef<HTMLInputElement>(null)
   const [form, setForm] = useState<FormState>({
@@ -114,13 +117,13 @@ export default function BusinessTab() {
     toast.success('Changes saved')
   }
 
-  if (loading) return <div style={loadingStyle}>Loading…</div>
+  if (loading) return <div style={loadingStyle}>{tc('loading')}</div>
 
   return (
     <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '560px' }}>
       {/* Business name */}
       <div>
-        <label style={labelStyle}>Business name <span style={{ color: 'var(--red)' }}>*</span></label>
+        <label style={labelStyle}>{t('businessName')} <span style={{ color: 'var(--red)' }}>*</span></label>
         <input
           style={inputStyle}
           value={form.name}
@@ -131,7 +134,7 @@ export default function BusinessTab() {
 
       {/* Logo */}
       <div>
-        <label style={labelStyle}>Logo</label>
+        <label style={labelStyle}>{t('businessLogo')}</label>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {form.logo_url ? (
             <img src={form.logo_url} alt="logo" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover', border: '1px solid var(--border-default)' }} />
@@ -141,7 +144,7 @@ export default function BusinessTab() {
             </div>
           )}
           <button type="button" onClick={() => fileRef.current?.click()} style={secondaryBtnStyle} disabled={uploadingLogo}>
-            {uploadingLogo ? 'Uploading…' : 'Change logo'}
+            {uploadingLogo ? t('uploadingLogo') : t('changeLogo')}
           </button>
           <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleLogoUpload} />
         </div>
@@ -149,7 +152,7 @@ export default function BusinessTab() {
 
       {/* Country */}
       <div>
-        <label style={labelStyle}>Country / Region</label>
+        <label style={labelStyle}>{t('countryRegion')}</label>
         <select style={selectStyle} value={form.country_code} onChange={e => handleCountryChange(e.target.value)}>
           {COUNTRIES.map(c => (
             <option key={c.code} value={c.code}>{c.flag} {c.label}</option>
@@ -159,7 +162,7 @@ export default function BusinessTab() {
 
       {/* VAT number */}
       <div>
-        <label style={labelStyle}>VAT number</label>
+        <label style={labelStyle}>{t('vatNumber')}</label>
         <input
           style={inputStyle}
           value={form.vat_number}
@@ -170,7 +173,7 @@ export default function BusinessTab() {
 
       {/* VAT rate */}
       <div>
-        <label style={labelStyle}>VAT rate (%)</label>
+        <label style={labelStyle}>{t('vatRateLabel')}</label>
         <input
           type="number"
           min={0}
@@ -184,7 +187,7 @@ export default function BusinessTab() {
 
       {/* Currency */}
       <div>
-        <label style={labelStyle}>Currency</label>
+        <label style={labelStyle}>{t('currency')}</label>
         <select style={selectStyle} value={form.currency} onChange={e => setForm(f => ({ ...f, currency: e.target.value }))}>
           {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
@@ -192,7 +195,7 @@ export default function BusinessTab() {
 
       {/* Date format */}
       <div>
-        <label style={labelStyle}>Date format</label>
+        <label style={labelStyle}>{t('dateFormat')}</label>
         <select style={selectStyle} value={form.date_format} onChange={e => setForm(f => ({ ...f, date_format: e.target.value }))}>
           {DATE_FORMATS.map(d => <option key={d} value={d}>{d}</option>)}
         </select>
@@ -201,8 +204,8 @@ export default function BusinessTab() {
       {/* AI Context */}
       <div>
         <label style={labelStyle}>
-          AI context{' '}
-          <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: '11px' }}>— used by Mistral to personalise replies and digests</span>
+          {t('aiContext')}{' '}
+          <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: '11px' }}>{t('aiContextMistralHint')}</span>
         </label>
         <textarea
           style={{ ...inputStyle, minHeight: '90px', resize: 'vertical' }}
@@ -214,7 +217,7 @@ export default function BusinessTab() {
 
       <div style={{ paddingTop: '4px' }}>
         <button type="submit" style={primaryBtnStyle} disabled={saving}>
-          {saving ? 'Saving…' : 'Save changes'}
+          {saving ? t('savingChanges') : t('saveChanges')}
         </button>
       </div>
     </form>

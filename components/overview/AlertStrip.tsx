@@ -7,7 +7,9 @@ import { AlertTriangle, X } from 'lucide-react'
 interface Alert {
   id: string
   type: 'invoice_overdue' | 'urgent_message' | 'shift_conflict'
-  message: string
+  name?: string
+  amount?: string
+  days?: number
   href: string
 }
 
@@ -15,7 +17,9 @@ const MOCK_ALERTS: Alert[] = [
   {
     id: '1',
     type: 'invoice_overdue',
-    message: 'Invoice #TechParis — €4,220 is 9 days overdue.',
+    name: 'TechParis',
+    amount: '4,220',
+    days: 9,
     href: '/finance',
   },
 ]
@@ -53,7 +57,9 @@ export function AlertStrip() {
               fontWeight: 500,
             }}
           >
-            {alert.message}
+            {alert.type === 'invoice_overdue'
+              ? t('invoiceOverdueAlert', { name: alert.name ?? '', amount: alert.amount ?? '', days: alert.days ?? 0 })
+              : ''}
           </span>
           <a
             href={alert.href}

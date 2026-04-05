@@ -132,7 +132,7 @@ export default function TimeOffPanel({ requests, employees, currentUserId, curre
         <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px' }}>{t('requestTimeOff')}</p>
 
         {!currentEmployeeId ? (
-          <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>You need an employee profile to request leave. Add yourself in the Team module.</p>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{t('noEmployeeProfile')}</p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>

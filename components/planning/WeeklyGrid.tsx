@@ -151,7 +151,7 @@ export default function WeeklyGrid({ employees, shifts, holidays, timeOff, count
       {/* Employee rows */}
       {employees.length === 0 ? (
         <div style={{ padding: '32px', textAlign: 'center' }}>
-          <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>No employees yet — add team members in the Team module.</p>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{t('noEmployees')}</p>
         </div>
       ) : (
         employees.map((emp, ri) => (

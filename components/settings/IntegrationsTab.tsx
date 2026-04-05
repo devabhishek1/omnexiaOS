@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import Papa from 'papaparse'
@@ -21,6 +22,8 @@ type PennylaneStatus = {
 type CsvPreviewRow = Record<string, string>
 
 export default function IntegrationsTab() {
+  const t = useTranslations('settings')
+  const tc = useTranslations('common')
   const supabase = createClient()
   const searchParams = useSearchParams()
   const fileRef = useRef<HTMLInputElement>(null)
@@ -181,40 +184,40 @@ export default function IntegrationsTab() {
 
       {/* Communications */}
       <section>
-        <h2 style={sectionHeadingStyle}>Communications</h2>
+        <h2 style={sectionHeadingStyle}>{t('sectionCommunications')}</h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
           {/* Gmail */}
           <IntegrationCard
             icon="✉️"
             title="Gmail"
-            description="Sync your inbox and send replies directly from Omnexia"
+            description={t('gmailDescription')}
           >
             {gmail.connected ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span style={greenDotStyle} />
-                  <span style={statusTextStyle}>Connected as {gmail.email}</span>
+                  <span style={statusTextStyle}>{t('gmailConnectedAs', { email: gmail.email ?? '' })}</span>
                 </div>
-                <span style={mutedTextStyle}>Last synced: {gmail.lastSynced ? new Date(gmail.lastSynced).toLocaleString() : 'Never'}</span>
-                <span style={mutedTextStyle}>{watchActive ? '🟢 Real-time sync active' : '🔴 Webhook inactive — reconnect to restore'}</span>
+                <span style={mutedTextStyle}>{gmail.lastSynced ? t('gmailLastSynced', { time: new Date(gmail.lastSynced).toLocaleString() }) : t('gmailLastSyncedNever')}</span>
+                <span style={mutedTextStyle}>{watchActive ? `🟢 ${t('gmailWebhookActive')}` : `🔴 ${t('gmailWebhookInactive')}`}</span>
                 <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
                   {!watchActive && (
                     <button onClick={handleGmailConnect} disabled={gmailConnecting} style={{ ...secondaryBtnStyle, cursor: gmailConnecting ? 'not-allowed' : 'pointer' }}>
-                      {gmailConnecting ? 'Redirecting…' : 'Reconnect'}
+                      {gmailConnecting ? t('redirecting') : t('reconnect')}
                     </button>
                   )}
-                  <button onClick={disconnectGmail} style={dangerBtnStyle}>Disconnect</button>
+                  <button onClick={disconnectGmail} style={dangerBtnStyle}>{t('disconnectLabel')}</button>
                 </div>
               </div>
             ) : (
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
                   <span style={redDotStyle} />
-                  <span style={statusTextStyle}>Not connected</span>
+                  <span style={statusTextStyle}>{t('notConnectedStatus')}</span>
                 </div>
                 <button onClick={handleGmailConnect} disabled={gmailConnecting} style={{ ...primaryBtnStyle, opacity: gmailConnecting ? 0.7 : 1, cursor: gmailConnecting ? 'not-allowed' : 'pointer' }}>
-                  {gmailConnecting ? 'Redirecting to Google…' : 'Connect Gmail'}
+                  {gmailConnecting ? t('redirectingGoogle') : t('gmailConnect')}
                 </button>
               </div>
             )}
@@ -224,7 +227,7 @@ export default function IntegrationsTab() {
           <IntegrationCard
             icon="📸"
             title="Instagram"
-            description="Receive and reply to Instagram DMs"
+            description={t('instagramDescription')}
             comingSoon
           />
 
@@ -232,7 +235,7 @@ export default function IntegrationsTab() {
           <IntegrationCard
             icon="💬"
             title="Facebook Messenger"
-            description="Receive and reply to Facebook messages"
+            description={t('facebookDescription')}
             comingSoon
           />
         </div>
@@ -240,34 +243,34 @@ export default function IntegrationsTab() {
 
       {/* Finance */}
       <section>
-        <h2 style={sectionHeadingStyle}>Finance</h2>
+        <h2 style={sectionHeadingStyle}>{t('sectionFinance')}</h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
           {/* Pennylane */}
           <IntegrationCard
             icon="💰"
             title="Pennylane"
-            description="The most popular invoicing tool for French SMBs — sync your invoices automatically"
+            description={t('pennylaneDescription')}
           >
             {pennylane.connected ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span style={greenDotStyle} />
-                  <span style={statusTextStyle}>Connected</span>
+                  <span style={statusTextStyle}>{t('pennylaneConnected')}</span>
                 </div>
-                <span style={mutedTextStyle}>Last synced: {pennylane.lastSynced ? new Date(pennylane.lastSynced).toLocaleString() : 'Never'}</span>
+                <span style={mutedTextStyle}>{pennylane.lastSynced ? t('gmailLastSynced', { time: new Date(pennylane.lastSynced).toLocaleString() }) : t('gmailLastSyncedNever')}</span>
                 <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-                  <a href="/api/integrations/pennylane/sync" style={secondaryBtnStyle as React.CSSProperties}>Sync now</a>
-                  <button onClick={disconnectPennylane} style={dangerBtnStyle}>Disconnect</button>
+                  <a href="/api/integrations/pennylane/sync" style={secondaryBtnStyle as React.CSSProperties}>{t('syncNow')}</a>
+                  <button onClick={disconnectPennylane} style={dangerBtnStyle}>{t('disconnectLabel')}</button>
                 </div>
               </div>
             ) : (
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
                   <span style={redDotStyle} />
-                  <span style={statusTextStyle}>Not connected</span>
+                  <span style={statusTextStyle}>{t('notConnectedStatus')}</span>
                 </div>
-                <a href="/api/integrations/pennylane/connect" style={primaryBtnStyle as React.CSSProperties}>Connect Pennylane</a>
+                <a href="/api/integrations/pennylane/connect" style={primaryBtnStyle as React.CSSProperties}>{t('pennylaneConnect')}</a>
               </div>
             )}
           </IntegrationCard>
@@ -276,7 +279,7 @@ export default function IntegrationsTab() {
           <IntegrationCard
             icon="📊"
             title="Axonaut"
-            description="Connect Axonaut to sync your invoices and quotes"
+            description={t('axonautDescription')}
             comingSoon
           />
 
@@ -284,7 +287,7 @@ export default function IntegrationsTab() {
           <IntegrationCard
             icon="📑"
             title="Henrri by Rivalis"
-            description="Connect Henrri to sync your invoices"
+            description={t('henrriDescription')}
             comingSoon
           />
 
@@ -292,25 +295,25 @@ export default function IntegrationsTab() {
           <IntegrationCard
             icon="🏦"
             title="QuickBooks / Sage"
-            description="Connect your accounting software"
+            description={t('quickbooksDescription')}
             comingSoon
           />
 
           {/* CSV Import */}
           <IntegrationCard
             icon="📥"
-            title="Import invoices from CSV / Excel"
-            description="Upload a spreadsheet with your existing invoices"
+            title={t('csvImportTitle')}
+            description={t('csvImportDescription')}
           >
             <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px' }}>
               Expected columns: <strong>Client</strong>, <strong>Amount</strong>, <strong>Status</strong>, <strong>Due Date</strong>
             </div>
-            <button onClick={() => fileRef.current?.click()} style={secondaryBtnStyle}>Upload file</button>
+            <button onClick={() => fileRef.current?.click()} style={secondaryBtnStyle}>{t('uploadFile')}</button>
             <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" style={{ display: 'none' }} onChange={handleCsvFile} />
 
             {csvPreview && (
               <div style={{ marginTop: '12px', overflowX: 'auto' }}>
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px' }}>Preview (first 5 rows):</p>
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px' }}>{t('csvPreviewHint')}</p>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                   <thead>
                     <tr>
@@ -331,9 +334,9 @@ export default function IntegrationsTab() {
                 </table>
                 <div style={{ marginTop: '10px', display: 'flex', gap: '8px', alignItems: 'center' }}>
                   <button onClick={handleImport} style={primaryBtnStyle} disabled={importing}>
-                    {importing ? 'Importing…' : 'Confirm import'}
+                    {importing ? t('importing') : t('confirmImport')}
                   </button>
-                  <button onClick={() => { setCsvPreview(null); setCsvFile(null) }} style={secondaryBtnStyle}>Cancel</button>
+                  <button onClick={() => { setCsvPreview(null); setCsvFile(null) }} style={secondaryBtnStyle}>{tc('cancel')}</button>
                 </div>
               </div>
             )}
@@ -349,13 +352,13 @@ export default function IntegrationsTab() {
           {/* CSV Export */}
           <IntegrationCard
             icon="📤"
-            title="Export data"
-            description="Download your invoices and expenses as CSV"
+            title={t('exportDataTitle')}
+            description={t('exportDataDescription')}
           >
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <button onClick={() => handleExport('invoices')} style={secondaryBtnStyle}>Export invoices</button>
-              <button onClick={() => handleExport('expenses')} style={secondaryBtnStyle}>Export expenses</button>
-              <button onClick={() => handleExport('all')} style={secondaryBtnStyle}>Export all data (JSON)</button>
+              <button onClick={() => handleExport('invoices')} style={secondaryBtnStyle}>{t('exportInvoicesLabel')}</button>
+              <button onClick={() => handleExport('expenses')} style={secondaryBtnStyle}>{t('exportExpensesLabel')}</button>
+              <button onClick={() => handleExport('all')} style={secondaryBtnStyle}>{t('exportAllData')}</button>
             </div>
           </IntegrationCard>
         </div>
@@ -363,11 +366,11 @@ export default function IntegrationsTab() {
 
       {/* Calendar */}
       <section>
-        <h2 style={sectionHeadingStyle}>Calendar</h2>
+        <h2 style={sectionHeadingStyle}>{t('sectionCalendar')}</h2>
         <IntegrationCard
           icon="📅"
           title="Google Calendar"
-          description="Sync shifts and time-off with Google Calendar"
+          description={t('googleCalendarDescription')}
           comingSoon
         />
       </section>
@@ -384,6 +387,7 @@ function IntegrationCard({
   comingSoon?: boolean
   children?: React.ReactNode
 }) {
+  const t = useTranslations('settings')
   return (
     <div style={{
       border: '1px solid var(--border-default)',
@@ -400,7 +404,7 @@ function IntegrationCard({
               <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>{title}</span>
               {comingSoon && (
                 <span style={{ fontSize: '10px', fontWeight: 600, color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: '4px', padding: '1px 6px' }}>
-                  Coming soon
+                  {t('comingSoon')}
                 </span>
               )}
             </div>

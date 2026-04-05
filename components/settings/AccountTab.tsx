@@ -54,8 +54,13 @@ export default function AccountTab() {
     await supabase.from('users').update({ locale }).eq('id', userId)
     if (businessId) await supabase.from('businesses').update({ locale }).eq('id', businessId)
     setSavingLocale(false)
-    toast.success('Language updated')
+    toast.success('Language updated. Regenerating AI digest…')
     router.refresh()
+    // Regenerate digest in the new language (fire-and-forget)
+    fetch('/api/mistral/digest', { method: 'POST' })
+      .then(res => res.json())
+      .then(() => toast.success('AI digest regenerated in new language'))
+      .catch(() => {/* silent — non-critical */})
   }
 
   async function handleUpdatePassword(e: React.FormEvent) {

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { UserPlus } from 'lucide-react'
 import EmployeeTable from '@/components/team/EmployeeTable'
@@ -14,6 +15,8 @@ interface User { id: string; role: string; status: string; module_access: Record
 interface ActivityEntry { id: string; user_id: string | null; action: string; target_type: string | null; target_id: string | null; metadata: Record<string, unknown> | null; created_at: string }
 
 export default function TeamPage() {
+  const t = useTranslations('team')
+  const tc = useTranslations('common')
   const [employees, setEmployees] = useState<Employee[]>([])
   const [users, setUsers] = useState<User[]>([])
   const [activityLogs, setActivityLogs] = useState<ActivityEntry[]>([])
@@ -106,7 +109,7 @@ export default function TeamPage() {
   if (loading) {
     return (
       <div style={{ padding: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
-        <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Loading team…</p>
+        <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{t('loadingTeam')}</p>
       </div>
     )
   }
@@ -116,14 +119,14 @@ export default function TeamPage() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <h1 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>Team</h1>
-          <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '2px 0 0' }}>{employees.length} member{employees.length !== 1 ? 's' : ''}</p>
+          <h1 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.02em' }}>{t('title')}</h1>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '2px 0 0' }}>{employees.length} {t('members').toLowerCase()}</p>
         </div>
         <button
           onClick={() => setInviteOpen(true)}
           style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', backgroundColor: 'var(--omnexia-accent)', color: '#fff', border: 'none', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
         >
-          <UserPlus size={15} /> Invite Employee
+          <UserPlus size={15} /> {t('inviteEmployee')}
         </button>
       </div>
 
@@ -154,11 +157,11 @@ export default function TeamPage() {
       {deactivateTarget && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
           <div style={{ backgroundColor: 'var(--bg-surface)', borderRadius: '16px', maxWidth: '400px', width: '100%', padding: '28px 24px', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
-            <h2 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px' }}>Deactivate {deactivateTarget.full_name}?</h2>
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 20px' }}>This will remove their access immediately. You can reactivate them from their profile later.</p>
+            <h2 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px' }}>{t('deactivateTitle', { name: deactivateTarget.full_name })}</h2>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 20px' }}>{t('deactivateDesc')}</p>
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-              <button onClick={() => setDeactivateTarget(null)} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--border)', background: 'none', fontSize: '13px', cursor: 'pointer', color: 'var(--text-secondary)' }}>Cancel</button>
-              <button onClick={handleDeactivateConfirm} style={{ padding: '8px 16px', borderRadius: '8px', backgroundColor: '#DC2626', color: '#fff', border: 'none', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>Deactivate</button>
+              <button onClick={() => setDeactivateTarget(null)} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--border)', background: 'none', fontSize: '13px', cursor: 'pointer', color: 'var(--text-secondary)' }}>{tc('cancel')}</button>
+              <button onClick={handleDeactivateConfirm} style={{ padding: '8px 16px', borderRadius: '8px', backgroundColor: '#DC2626', color: '#fff', border: 'none', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>{t('deactivate')}</button>
             </div>
           </div>
         </div>

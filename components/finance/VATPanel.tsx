@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { getVatRate, calculateVat } from '@/lib/utils/vat'
 
 interface Invoice { total: number; vat_amount: number | null; subtotal: number | null; status: string; issued_date: string | null }
@@ -27,6 +28,7 @@ function isCurrentQuarter(dateStr: string | null) {
 }
 
 export default function VATPanel({ invoices, countryCode, businessVatRate }: Props) {
+  const t = useTranslations('finance')
   const defaultRate = businessVatRate ?? getVatRate(countryCode)
   const [vatRate, setVatRate] = useState(defaultRate)
   const [overriding, setOverriding] = useState(false)
@@ -39,20 +41,22 @@ export default function VATPanel({ invoices, countryCode, businessVatRate }: Pro
     <div style={{ backgroundColor: 'var(--bg-surface)', borderRadius: '12px', padding: '20px 24px', border: '1px solid var(--border)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
         <div>
-          <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>VAT Liability</p>
-          <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '2px 0 0' }}>{getCurrentQuarterLabel()} · Based on {countryCode} standard rate of {defaultRate}%</p>
+          <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>{t('vatLiability')}</p>
+          <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '2px 0 0' }}>
+            {t('vatQuarterInfo', { quarter: getCurrentQuarterLabel(), country: countryCode, rate: defaultRate })}
+          </p>
         </div>
         <button
           onClick={() => setOverriding(o => !o)}
           style={{ fontSize: '12px', color: 'var(--omnexia-accent)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
         >
-          {overriding ? 'Done' : 'Override rate'}
+          {overriding ? t('vatOverrideDone') : t('vatOverrideRate')}
         </button>
       </div>
 
       {overriding && (
         <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Custom VAT rate (%)</label>
+          <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{t('vatCustomRate')}</label>
           <input
             type="number"
             min={0}
@@ -67,21 +71,21 @@ export default function VATPanel({ invoices, countryCode, businessVatRate }: Pro
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--text-secondary)' }}>
-          <span>Subtotal (excl. VAT)</span>
+          <span>{t('vatSubtotal')}</span>
           <span>€{subtotal.toLocaleString('en-GB', { minimumFractionDigits: 2 })}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: 'var(--text-secondary)' }}>
-          <span>VAT ({vatRate}%)</span>
+          <span>{t('vatLine', { rate: vatRate })}</span>
           <span>€{vatAmount.toLocaleString('en-GB', { minimumFractionDigits: 2 })}</span>
         </div>
         <div style={{ borderTop: '1px solid var(--border)', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
-          <span>Total incl. VAT</span>
+          <span>{t('vatTotal')}</span>
           <span>€{total.toLocaleString('en-GB', { minimumFractionDigits: 2 })}</span>
         </div>
       </div>
 
       <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '12px', marginBottom: 0 }}>
-        Calculated from {quarterInvoices.length} invoice{quarterInvoices.length !== 1 ? 's' : ''} issued this quarter. Not a substitute for professional tax advice.
+        {t('vatFootnote', { count: quarterInvoices.length })}
       </p>
     </div>
   )

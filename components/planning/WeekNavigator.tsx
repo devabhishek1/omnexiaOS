@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight, Download } from 'lucide-react'
 import { startOfWeek, endOfWeek, format, addWeeks, subWeeks } from 'date-fns'
 
@@ -12,9 +13,11 @@ interface Props {
 }
 
 export default function WeekNavigator({ week, view, onWeekChange, onViewChange, onExport }: Props) {
+  const t = useTranslations('planning')
+  const tc = useTranslations('common')
   const start = startOfWeek(week, { weekStartsOn: 1 })
   const end = endOfWeek(week, { weekStartsOn: 1 })
-  const label = `Week of ${format(start, 'MMM d')} – ${format(end, 'MMM d, yyyy')}`
+  const label = t('weekOf', { start: format(start, 'MMM d'), end: format(end, 'MMM d, yyyy') })
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
@@ -32,10 +35,9 @@ export default function WeekNavigator({ week, view, onWeekChange, onViewChange, 
               color: view === v ? '#fff' : 'var(--text-secondary)',
               border: 'none',
               cursor: 'pointer',
-              textTransform: 'capitalize',
             }}
           >
-            {v}
+            {v === 'weekly' ? t('weekly') : t('monthly')}
           </button>
         ))}
       </div>
@@ -54,7 +56,7 @@ export default function WeekNavigator({ week, view, onWeekChange, onViewChange, 
             onClick={() => onWeekChange(new Date())}
             style={{ padding: '5px 12px', borderRadius: '6px', border: '1px solid var(--border)', background: 'none', fontSize: '12px', cursor: 'pointer', color: 'var(--text-secondary)' }}
           >
-            Today
+            {tc('today')}
           </button>
         </div>
       )}
@@ -64,7 +66,7 @@ export default function WeekNavigator({ week, view, onWeekChange, onViewChange, 
           onClick={onExport}
           style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', borderRadius: '8px', border: '1px solid var(--border)', background: 'none', fontSize: '13px', cursor: 'pointer', color: 'var(--text-secondary)' }}
         >
-          <Download size={13} /> Export CSV
+          <Download size={13} /> {t('exportCSV')}
         </button>
       </div>
     </div>

@@ -17,7 +17,40 @@ export function DigestCard() {
   })
 
   useEffect(() => {
-    loadDigest()
+    let channel: ReturnType<typeof supabase.channel> | null = null
+
+    async function init() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { setLoading(false); return }
+      const { data: userRow } = await supabase.from('users').select('business_id').eq('id', user.id).single()
+      if (!userRow?.business_id) { setLoading(false); return }
+      const businessId = userRow.business_id
+      await loadDigest()
+
+      // Subscribe to digest updates (e.g. triggered by language change in Settings)
+      channel = supabase
+        .channel('digest-realtime')
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'ai_digests',
+          filter: `business_id=eq.${businessId}`,
+        }, (payload) => {
+          setContent((payload.new as { content: string }).content)
+        })
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'ai_digests',
+          filter: `business_id=eq.${businessId}`,
+        }, (payload) => {
+          setContent((payload.new as { content: string }).content)
+        })
+        .subscribe()
+    }
+
+    init()
+    return () => { if (channel) supabase.removeChannel(channel) }
   }, [])
 
   async function loadDigest() {

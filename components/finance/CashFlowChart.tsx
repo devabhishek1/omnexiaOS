@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts'
 
 interface Invoice { total: number; status: string; due_date: string | null }
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export default function CashFlowChart({ invoices }: Props) {
+  const t = useTranslations('finance')
   const today = new Date()
   const data: { date: string; cashPosition: number }[] = []
 
@@ -30,8 +32,8 @@ export default function CashFlowChart({ invoices }: Props) {
 
   return (
     <div style={{ backgroundColor: 'var(--bg-surface)', borderRadius: '12px', padding: '20px 24px', border: '1px solid var(--border)' }}>
-      <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 4px' }}>Projected Cash Flow</p>
-      <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 16px' }}>Next 30 days — based on pending invoice due dates</p>
+      <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 4px' }}>{t('projectedCashFlow')}</p>
+      <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 16px' }}>{t('cashFlowSubtitle')}</p>
       <ResponsiveContainer width="100%" height={200}>
         <LineChart data={data}>
           <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} interval={4} />
