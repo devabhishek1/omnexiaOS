@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import ReactDOM from 'react-dom'
 import { useTranslations } from 'next-intl'
 import {
@@ -197,19 +197,14 @@ function fileEmoji(mimeType: string, filename: string): string {
   return '📎'
 }
 
-async function downloadBlob(att: MessageAttachment) {
-  const res = await fetch(`/api/gmail/attachment?gmailMessageId=${encodeURIComponent(att.gmailMessageId)}&attachmentId=${encodeURIComponent(att.attachmentId)}`)
-  const { data } = await res.json()
-  if (!data) return
-  const byteStr = atob(data)
-  const ab = new ArrayBuffer(byteStr.length)
-  const ia = new Uint8Array(ab)
-  for (let i = 0; i < byteStr.length; i++) ia[i] = byteStr.charCodeAt(i)
-  const blob = new Blob([ab], { type: att.mimeType || 'application/octet-stream' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url; a.download = att.filename; a.click()
-  URL.revokeObjectURL(url)
+function attachmentUrl(att: MessageAttachment): string {
+  const params = new URLSearchParams({
+    gmailMessageId: att.gmailMessageId,
+    attachmentId: att.attachmentId,
+    mimeType: att.mimeType || 'application/octet-stream',
+    filename: att.filename,
+  })
+  return `/api/gmail/attachment?${params.toString()}`
 }
 
 // ---------------------------------------------------------------------------
@@ -217,69 +212,41 @@ async function downloadBlob(att: MessageAttachment) {
 // ---------------------------------------------------------------------------
 
 function AttachmentItem({ att, isOut }: { att: MessageAttachment; isOut: boolean }) {
-  const [imgSrc, setImgSrc] = useState<string | null>(null)
-  const [loadState, setLoadState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
   const [lightboxOpen, setLightboxOpen] = useState(false)
-  const [downloading, setDownloading] = useState(false)
+  const [imgError, setImgError] = useState(false)
+  const isImage = att.mimeType.startsWith('image/') && !imgError
+  const url = attachmentUrl(att)
 
-  const isImage = att.mimeType.startsWith('image/')
-
-  const fetchImage = useCallback(() => {
-    if (!isImage || loadState !== 'idle') return
-    setLoadState('loading')
-    fetch(`/api/gmail/attachment?gmailMessageId=${encodeURIComponent(att.gmailMessageId)}&attachmentId=${encodeURIComponent(att.attachmentId)}`)
-      .then((r) => r.json())
-      .then(({ data }) => {
-        if (data) { setImgSrc(`data:${att.mimeType};base64,${data}`); setLoadState('done') }
-        else setLoadState('error')
-      })
-      .catch(() => setLoadState('error'))
-  }, [att, isImage, loadState])
-
-  useEffect(() => { fetchImage() }, [fetchImage])
-
-  // --- Image ---
+  // --- Inline image ---
   if (isImage) {
-    if (loadState === 'loading' || loadState === 'idle') {
-      return (
-        <div style={{ width: '220px', height: '140px', borderRadius: '10px', background: '#F0F0F0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: '#9CA3AF' }}>
-          Loading…
-        </div>
-      )
-    }
-    if (loadState === 'done' && imgSrc) {
-      return (
-        <>
-          <img
-            src={imgSrc}
-            alt={att.filename}
-            onClick={() => setLightboxOpen(true)}
-            title="Click to enlarge"
-            style={{
-              maxWidth: '260px', maxHeight: '220px',
-              borderRadius: '10px', display: 'block',
-              objectFit: 'cover', cursor: 'zoom-in',
-              boxShadow: '0 2px 10px rgba(0,0,0,0.14)',
-              transition: 'transform 0.15s, box-shadow 0.15s',
-            }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLImageElement).style.transform = 'scale(1.02)'; (e.currentTarget as HTMLImageElement).style.boxShadow = '0 4px 18px rgba(0,0,0,0.22)' }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLImageElement).style.transform = 'scale(1)'; (e.currentTarget as HTMLImageElement).style.boxShadow = '0 2px 10px rgba(0,0,0,0.14)' }}
-          />
-          {lightboxOpen && <ImageLightbox src={imgSrc} filename={att.filename} onClose={() => setLightboxOpen(false)} />}
-        </>
-      )
-    }
-    // Image load failed — fall through to file chip
+    return (
+      <>
+        <img
+          src={url}
+          alt={att.filename}
+          onClick={() => setLightboxOpen(true)}
+          onError={() => setImgError(true)}
+          title="Click to enlarge"
+          style={{
+            maxWidth: '260px', maxHeight: '220px',
+            borderRadius: '10px', display: 'block',
+            objectFit: 'cover', cursor: 'zoom-in',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.14)',
+            transition: 'transform 0.15s, box-shadow 0.15s',
+          }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLImageElement).style.transform = 'scale(1.02)'; (e.currentTarget as HTMLImageElement).style.boxShadow = '0 4px 18px rgba(0,0,0,0.22)' }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLImageElement).style.transform = 'scale(1)'; (e.currentTarget as HTMLImageElement).style.boxShadow = '0 2px 10px rgba(0,0,0,0.14)' }}
+        />
+        {lightboxOpen && <ImageLightbox src={url} filename={att.filename} onClose={() => setLightboxOpen(false)} />}
+      </>
+    )
   }
 
-  // --- File chip (non-image or failed image) ---
+  // --- File chip with direct download link ---
   return (
-    <button
-      onClick={async () => {
-        if (downloading) return
-        setDownloading(true)
-        try { await downloadBlob(att) } finally { setDownloading(false) }
-      }}
+    <a
+      href={url}
+      download={att.filename}
       title={`Download ${att.filename}`}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: '8px',
@@ -289,21 +256,18 @@ function AttachmentItem({ att, isOut }: { att: MessageAttachment; isOut: boolean
         color: isOut ? '#2563EB' : '#374151',
         fontSize: '12px', fontWeight: 500,
         border: `1px solid ${isOut ? '#BFDBFE' : '#E5E7EB'}`,
-        cursor: downloading ? 'wait' : 'pointer',
+        textDecoration: 'none',
         fontFamily: 'var(--font-dm-sans), sans-serif',
         maxWidth: '280px',
         transition: 'background 0.15s',
       }}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = isOut ? '#DBEAFE' : '#E9EAEC' }}
-      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = isOut ? '#EEF3FE' : '#F3F4F6' }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = isOut ? '#DBEAFE' : '#E9EAEC' }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = isOut ? '#EEF3FE' : '#F3F4F6' }}
     >
       <span style={{ fontSize: '16px', lineHeight: 1, flexShrink: 0 }}>{fileEmoji(att.mimeType, att.filename)}</span>
       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, textAlign: 'left' }}>{att.filename}</span>
-      {downloading
-        ? <span style={{ fontSize: '10px', color: '#9CA3AF', flexShrink: 0 }}>…</span>
-        : <Download size={11} style={{ flexShrink: 0, opacity: 0.5 }} />
-      }
-    </button>
+      <Download size={11} style={{ flexShrink: 0, opacity: 0.5 }} />
+    </a>
   )
 }
 

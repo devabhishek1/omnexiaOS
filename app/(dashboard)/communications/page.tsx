@@ -58,6 +58,8 @@ export default function CommunicationsPage() {
   const dragging = useRef(false)
   const startX = useRef(0)
   const startWidth = useRef(320)
+  // Track which conversations have already been fully synced this session
+  const syncedConvIds = useRef<Set<string>>(new Set())
 
   // Filters
   const [activeChannel, setActiveChannel] = useState('all')
@@ -233,12 +235,15 @@ export default function CommunicationsPage() {
       prev.map((c) => c.id === id && c.status === 'unread' ? { ...c, status: 'read' } : c)
     )
     await loadMessages(id)
-    // Background: fetch full Gmail thread history so all historical messages appear
-    fetch('/api/gmail/sync-thread', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ conversationId: id }),
-    }).then(() => loadMessages(id)).catch(() => { /* non-fatal */ })
+    // Background: fetch full Gmail thread history — only once per session per conversation
+    if (!syncedConvIds.current.has(id)) {
+      syncedConvIds.current.add(id)
+      fetch('/api/gmail/sync-thread', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversationId: id }),
+      }).then(() => loadMessages(id)).catch(() => { /* non-fatal */ })
+    }
   }
 
   async function handleMarkUnread(id: string) {

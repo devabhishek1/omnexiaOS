@@ -6,6 +6,8 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const gmailMessageId = searchParams.get('gmailMessageId')
   const attachmentId = searchParams.get('attachmentId')
+  const mimeType = searchParams.get('mimeType') ?? 'application/octet-stream'
+  const filename = searchParams.get('filename') ?? 'attachment'
 
   if (!gmailMessageId || !attachmentId) {
     return NextResponse.json({ error: 'gmailMessageId and attachmentId are required' }, { status: 400 })
@@ -27,9 +29,26 @@ export async function GET(request: Request) {
     }
 
     const { data } = await res.json()
-    // Gmail returns base64url-encoded data; convert to standard base64
+    if (!data) return NextResponse.json({ error: 'No attachment data' }, { status: 404 })
+
+    // Convert base64url → binary
     const base64 = (data as string).replace(/-/g, '+').replace(/_/g, '/')
-    return NextResponse.json({ data: base64 })
+    const binary = Buffer.from(base64, 'base64')
+
+    const isInline = mimeType.startsWith('image/') || mimeType === 'application/pdf'
+    const disposition = isInline
+      ? `inline; filename="${filename}"`
+      : `attachment; filename="${filename}"`
+
+    return new Response(binary, {
+      status: 200,
+      headers: {
+        'Content-Type': mimeType,
+        'Content-Disposition': disposition,
+        'Content-Length': binary.length.toString(),
+        'Cache-Control': 'private, max-age=3600',
+      },
+    })
   } catch (err) {
     console.error('[gmail/attachment]', err)
     return NextResponse.json({ error: 'Internal error' }, { status: 500 })
