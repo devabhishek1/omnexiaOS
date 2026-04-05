@@ -1,1 +1,26 @@
 node_modules
+
+# Environment files — NEVER commit these
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+.env.test
+
+# Build output
+.next/
+out/
+
+# Misc
+.DS_Store
+**/.DS_Store
+*.tsbuildinfo
+*.tsbuildinfo.*
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+Thumbs.db
