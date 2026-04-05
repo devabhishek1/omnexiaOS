@@ -28,6 +28,7 @@ export interface Conversation {
   subject: string
   preview: string
   timestamp: string
+  lastMessageAt?: string   // ISO string — used for client-side re-sorting
   labels: string[]
   assignedTo?: string
   messages: ThreadMessage[]

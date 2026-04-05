@@ -30,6 +30,7 @@ function adaptConversation(row: any, messages: Conversation['messages'] = []): C
     timestamp: row.lastMessageAt
       ? new Date(row.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       : '',
+    lastMessageAt: row.lastMessageAt ?? undefined,
     labels: row.labels ?? [],
     assignedTo: row.assignedTo,
     messages,
@@ -131,10 +132,26 @@ export default function CommunicationsPage() {
       .channel('comms-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => loadConversations())
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
-        const msg = payload.new as { conversation_id: string }
-        setConversations((prev) =>
-          prev.map((c) => c.id === msg.conversation_id ? { ...c, status: 'unread' } : c)
-        )
+        const msg = payload.new as { conversation_id: string; received_at: string; direction: string }
+        const now = msg.received_at ?? new Date().toISOString()
+        setConversations((prev) => {
+          const updated = prev.map((c) =>
+            c.id === msg.conversation_id
+              ? {
+                  ...c,
+                  status: msg.direction === 'inbound' ? ('unread' as const) : c.status,
+                  lastMessageAt: now,
+                  timestamp: new Date(now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                }
+              : c
+          )
+          // Re-sort by lastMessageAt descending so the updated conversation rises to the top
+          return [...updated].sort((a, b) => {
+            const aTime = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0
+            const bTime = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0
+            return bTime - aTime
+          })
+        })
       })
       .subscribe()
 
