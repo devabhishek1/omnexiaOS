@@ -4,7 +4,7 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto'
 
 function getKey(): Buffer {
-  const raw = process.env.ENCRYPTION_KEY
+  const raw = process.env.ENCRYPTION_KEY?.trim()
   if (!raw || raw.length !== 64) {
     throw new Error('ENCRYPTION_KEY env var is missing or not 64 hex chars. Run: openssl rand -hex 32')
   }
