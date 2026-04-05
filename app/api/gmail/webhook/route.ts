@@ -11,6 +11,7 @@ import { fetchMessagesSinceHistory, upsertMessage } from '@/lib/gmail/sync'
 import { parseGmailMessage } from '@/lib/gmail/parse'
 import { encrypt } from '@/lib/utils/crypto'
 import { flagUrgency } from '@/lib/mistral/urgency'
+import { extractKeyInfo } from '@/lib/mistral/extract'
 
 export async function POST(request: Request) {
   try {
@@ -62,33 +63,53 @@ export async function POST(request: Request) {
         const parsed = parseGmailMessage(msg)
         await upsertMessage(parsed, businessId, emailAddress)
 
-        // Run urgency flagging in background — don't await so webhook stays fast
+        // Run AI analysis in background — don't block webhook response
         if (parsed.subject || parsed.bodyPreview) {
-          const threadId = parsed.threadId as string | undefined
-          flagUrgency(parsed.subject ?? '', parsed.bodyPreview ?? '').then(async (result) => {
-            if (!result.urgent) return
-            // Mark conversation as priority via threadId
-            if (threadId) {
-              await admin.from('conversations').update({ priority: true }).eq('thread_id', threadId).eq('business_id', businessId)
+          Promise.all([
+            flagUrgency(parsed.subject ?? '', parsed.bodyPreview ?? ''),
+            extractKeyInfo(parsed.bodyCached ?? parsed.bodyPreview ?? ''),
+          ]).then(async ([urgency, extracted]) => {
+            // Stamp ai_summary + ai_extracted onto the message row
+            const { data: msgRow } = await admin
+              .from('messages')
+              .select('id')
+              .eq('gmail_message_id', parsed.gmailMessageId)
+              .single()
+
+            if (msgRow) {
+              await admin.from('messages').update({
+                ai_summary: urgency.reason ?? null,
+                ai_extracted: extracted,
+              }).eq('id', msgRow.id)
             }
+
+            if (!urgency.urgent) return
+
+            // Mark conversation as priority — external_id holds the Gmail threadId
+            await admin
+              .from('conversations')
+              .update({ priority: true })
+              .eq('external_id', parsed.threadId)
+              .eq('business_id', businessId)
+
             // Insert in-app notification
             await admin.from('notifications').insert({
               business_id: businessId,
               user_id: token.user_id,
               type: 'message',
               title: encrypt(`Urgent: ${parsed.subject ?? 'New message'}`),
-              body: encrypt(result.reason),
+              body: encrypt(urgency.reason),
               link: '/communications',
               is_read: false,
             })
-          }).catch((e) => console.error('[webhook] urgency flag error:', e))
+          }).catch((e) => console.error('[webhook] AI error:', e))
         }
       } catch (e) {
         console.error('[webhook] error upserting message:', e)
       }
     }
 
-    // Advance stored historyId to the new one
+    // Advance stored historyId and stamp last_synced_at
     await admin
       .from('gmail_tokens')
       .update({
@@ -97,9 +118,7 @@ export async function POST(request: Request) {
       })
       .eq('user_id', token.user_id)
 
-    console.log(
-      `[webhook] Processed ${newMessages.length} new messages for ${emailAddress}`
-    )
+    console.log(`[webhook] Processed ${newMessages.length} new messages for ${emailAddress}`)
     return new Response('OK', { status: 200 })
   } catch (err) {
     console.error('[webhook] Unhandled error:', err)

@@ -133,9 +133,41 @@ function parseEmailAddress(raw: string): { name: string; email: string } {
   return { name: raw.trim(), email: raw.trim() }
 }
 
-// Stub: returns { urgent: false } — will connect to Gemini in Phase 12
-async function flagUrgency(_subject: string, _preview: string): Promise<{ urgent: boolean }> {
-  return { urgent: false }
+const mistralApiKey = Deno.env.get('MISTRAL_API_KEY') ?? ''
+
+async function flagUrgency(subject: string, preview: string): Promise<{ urgent: boolean; reason: string }> {
+  if (!mistralApiKey) return { urgent: false, reason: '' }
+  try {
+    const res = await fetch('https://api.mistral.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${mistralApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'mistral-small-latest',
+        temperature: 0.1,
+        max_tokens: 100,
+        messages: [{
+          role: 'user',
+          content: `Analyse this email and determine if it is urgent for a small business.
+Respond ONLY with valid JSON: { "urgent": boolean, "reason": string }
+
+Flag urgent if: complaint, legal threat, overdue payment demand, refund request, angry customer, time-sensitive deadline.
+Do NOT flag: newsletters, general enquiries, promotional emails.
+
+Subject: ${subject}
+Preview: ${preview}`,
+        }],
+      }),
+    })
+    if (!res.ok) return { urgent: false, reason: '' }
+    const data = await res.json()
+    const text: string = data.choices?.[0]?.message?.content ?? ''
+    return JSON.parse(text.replace(/```json|```/g, '').trim())
+  } catch {
+    return { urgent: false, reason: '' }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -280,30 +312,44 @@ Deno.serve(async () => {
             totalProcessed++
           }
 
-          // Urgency flagging (stub for now — Gemini wired in Phase 12)
-          const urgency = await flagUrgency(parsed.subject, parsed.bodyPreview)
-          if (urgency.urgent && conversationId) {
-            await supabase.from('conversations')
-              .update({ priority: true })
-              .eq('id', conversationId)
+          // Urgency flagging via Mistral (only for new messages)
+          if (!existingMsg && (parsed.subject || parsed.bodyPreview)) {
+            const urgency = await flagUrgency(parsed.subject, parsed.bodyPreview)
 
-            // Create notification
-            const { data: userRow } = await supabase
-              .from('users')
+            // Stamp ai_summary onto the new message
+            const { data: newMsg } = await supabase
+              .from('messages')
               .select('id')
-              .eq('business_id', businessId)
-              .eq('role', 'admin')
+              .eq('gmail_message_id', parsed.gmailMessageId)
               .single()
+            if (newMsg && urgency.reason) {
+              await supabase.from('messages')
+                .update({ ai_summary: urgency.reason })
+                .eq('id', newMsg.id)
+            }
 
-            if (userRow) {
-              await supabase.from('notifications').insert({
-                business_id: businessId,
-                user_id: userRow.id,
-                type: 'message',
-                title: `Priority message: ${parsed.subject}`,
-                body: parsed.bodyPreview,
-                link: '/communications',
-              })
+            if (urgency.urgent && conversationId) {
+              await supabase.from('conversations')
+                .update({ priority: true })
+                .eq('id', conversationId)
+
+              const { data: userRow } = await supabase
+                .from('users')
+                .select('id')
+                .eq('business_id', businessId)
+                .eq('role', 'admin')
+                .single()
+
+              if (userRow) {
+                await supabase.from('notifications').insert({
+                  business_id: businessId,
+                  user_id: userRow.id,
+                  type: 'message',
+                  title: `Priority message: ${parsed.subject}`,
+                  body: urgency.reason || parsed.bodyPreview,
+                  link: '/communications',
+                })
+              }
             }
           }
         } catch (msgErr) {

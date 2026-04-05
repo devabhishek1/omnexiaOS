@@ -99,6 +99,7 @@ export async function GET(request: Request) {
       access_token: encryptedAccess,
       refresh_token: encryptedRefresh,
       expires_at: expiresAt,
+      calendar_connected: true,
     })
 
     if (tokenError) {
@@ -114,10 +115,16 @@ export async function GET(request: Request) {
     )
 
     // Seed inbox with last 50 messages (background, non-blocking)
+    // Also stamps last_polled_at so Settings shows a real "Last synced" time
     if (businessId) {
-      initialSync(providerToken, businessId, user.email ?? '').catch(e =>
-        console.error('[callback] initialSync failed (non-fatal):', e)
-      )
+      initialSync(providerToken, businessId, user.email ?? '')
+        .then(async () => {
+          await admin
+            .from('gmail_tokens')
+            .update({ last_polled_at: new Date().toISOString() })
+            .eq('user_id', user.id)
+        })
+        .catch(e => console.error('[callback] initialSync failed (non-fatal):', e))
     }
 
     // Redirect back to where the user came from

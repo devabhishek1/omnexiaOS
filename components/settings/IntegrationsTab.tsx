@@ -30,7 +30,9 @@ export default function IntegrationsTab() {
   const oauthProcessed = useRef(false)
 
   const [gmail, setGmail] = useState<GmailStatus>({ connected: false })
+  const [gmailLoading, setGmailLoading] = useState(true)
   const [gmailConnecting, setGmailConnecting] = useState(false)
+  const [calendarSyncing, setCalendarSyncing] = useState(false)
   const [pennylane, setPennylane] = useState<PennylaneStatus>({ connected: false })
   const [csvPreview, setCsvPreview] = useState<CsvPreviewRow[] | null>(null)
   const [csvFile, setCsvFile] = useState<File | null>(null)
@@ -78,12 +80,18 @@ export default function IntegrationsTab() {
     // Gmail
     const { data: gmailRow } = await supabase
       .from('gmail_tokens')
-      .select('email, last_synced_at, watch_expiry')
+      .select('email, last_polled_at, last_synced_at, watch_expiry')
       .eq('user_id', user.id)
       .maybeSingle()
     if (gmailRow) {
-      setGmail({ connected: true, email: gmailRow.email, lastSynced: gmailRow.last_synced_at, watchExpiry: gmailRow.watch_expiry })
+      // Show whichever sync happened more recently: push (last_synced_at) or poll (last_polled_at)
+      const mostRecent = [gmailRow.last_synced_at, gmailRow.last_polled_at]
+        .filter(Boolean)
+        .sort()
+        .pop() ?? null
+      setGmail({ connected: true, email: gmailRow.email, lastSynced: mostRecent, watchExpiry: gmailRow.watch_expiry })
     }
+    setGmailLoading(false)
 
     // Pennylane
     const { data: userRow } = await supabase.from('users').select('business_id').eq('id', user.id).single()
@@ -105,7 +113,7 @@ export default function IntegrationsTab() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        scopes: 'https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar.readonly',
+        scopes: 'https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar',
         redirectTo: `${window.location.origin}/api/auth/callback/google?from=settings`,
         queryParams: { access_type: 'offline', prompt: 'consent' },
       },
@@ -116,6 +124,22 @@ export default function IntegrationsTab() {
       setGmailConnecting(false)
     }
     // If no error, browser redirects — no need to reset state
+  }
+
+  async function syncCalendar() {
+    setCalendarSyncing(true)
+    try {
+      const res = await fetch('/api/calendar/sync', { method: 'POST' })
+      const data = await res.json()
+      if (res.ok) {
+        toast.success(`Synced ${data.synced} events to Google Calendar`)
+      } else {
+        toast.error(data.error ?? 'Calendar sync failed')
+      }
+    } catch {
+      toast.error('Calendar sync failed')
+    }
+    setCalendarSyncing(false)
   }
 
   async function disconnectGmail() {
@@ -193,7 +217,12 @@ export default function IntegrationsTab() {
             title="Gmail"
             description={t('gmailDescription')}
           >
-            {gmail.connected ? (
+            {gmailLoading ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--border-default)', display: 'inline-block' }} />
+                <span style={{ ...statusTextStyle, color: 'var(--text-muted)' }}>Loading…</span>
+              </div>
+            ) : gmail.connected ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span style={greenDotStyle} />
@@ -202,11 +231,9 @@ export default function IntegrationsTab() {
                 <span style={mutedTextStyle}>{gmail.lastSynced ? t('gmailLastSynced', { time: new Date(gmail.lastSynced).toLocaleString() }) : t('gmailLastSyncedNever')}</span>
                 <span style={mutedTextStyle}>{watchActive ? `🟢 ${t('gmailWebhookActive')}` : `🔴 ${t('gmailWebhookInactive')}`}</span>
                 <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
-                  {!watchActive && (
-                    <button onClick={handleGmailConnect} disabled={gmailConnecting} style={{ ...secondaryBtnStyle, cursor: gmailConnecting ? 'not-allowed' : 'pointer' }}>
-                      {gmailConnecting ? t('redirecting') : t('reconnect')}
-                    </button>
-                  )}
+                  <button onClick={handleGmailConnect} disabled={gmailConnecting} style={{ ...secondaryBtnStyle, cursor: gmailConnecting ? 'not-allowed' : 'pointer' }}>
+                    {gmailConnecting ? t('redirecting') : t('reconnect')}
+                  </button>
                   <button onClick={disconnectGmail} style={dangerBtnStyle}>{t('disconnectLabel')}</button>
                 </div>
               </div>
@@ -371,8 +398,34 @@ export default function IntegrationsTab() {
           icon="📅"
           title="Google Calendar"
           description={t('googleCalendarDescription')}
-          comingSoon
-        />
+        >
+          {gmailLoading ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--border-default)', display: 'inline-block' }} />
+              <span style={{ ...statusTextStyle, color: 'var(--text-muted)' }}>Loading…</span>
+            </div>
+          ) : gmail.connected ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={greenDotStyle} />
+                <span style={statusTextStyle}>Connected via Google account ({gmail.email})</span>
+              </div>
+              <span style={mutedTextStyle}>Sync shifts and approved time-off to your Google Calendar.</span>
+              <div style={{ marginTop: '8px' }}>
+                <button onClick={syncCalendar} disabled={calendarSyncing} style={{ ...primaryBtnStyle, opacity: calendarSyncing ? 0.7 : 1, cursor: calendarSyncing ? 'not-allowed' : 'pointer' }}>
+                  {calendarSyncing ? 'Syncing…' : 'Sync planning to Calendar'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
+                <span style={redDotStyle} />
+                <span style={statusTextStyle}>Connect Gmail first to enable Google Calendar sync</span>
+              </div>
+            </div>
+          )}
+        </IntegrationCard>
       </section>
     </div>
   )

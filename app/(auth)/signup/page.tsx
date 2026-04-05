@@ -79,7 +79,7 @@ export default function SignupPage() {
       options: {
         redirectTo: `${window.location.origin}/api/auth/callback/google`,
         scopes:
-          'https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar.readonly',
+          'https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar',
       },
     })
     setGoogleLoading(false)

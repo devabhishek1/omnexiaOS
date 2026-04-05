@@ -54,7 +54,7 @@ export default function Step6Gmail({ data, onChange, onAdvance }: Props) {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          scopes: 'https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar.readonly',
+          scopes: 'https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar',
           redirectTo: `${window.location.origin}/api/auth/callback/google?from=onboarding`,
           queryParams: { access_type: 'offline', prompt: 'consent' },
         },
