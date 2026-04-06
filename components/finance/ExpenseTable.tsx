@@ -77,10 +77,16 @@ export default function ExpenseTable({ expenses, businessId, onExpenseAdded, onE
     const path = `${businessId}/${expenseId}.${ext}`
     const { error: uploadError } = await supabase.storage.from('receipts').upload(path, file, { upsert: true })
     if (!uploadError) {
-      const { data: urlData } = supabase.storage.from('receipts').getPublicUrl(path)
-      await supabase.from('expenses').update({ receipt_url: urlData.publicUrl }).eq('id', expenseId)
+      // Store the storage path, not a public URL
+      await supabase.from('expenses').update({ receipt_url: path }).eq('id', expenseId)
     }
     setUploadingId(null)
+  }
+
+  async function handleViewReceipt(path: string) {
+    const supabase = createClient()
+    const { data, error } = await supabase.storage.from('receipts').createSignedUrl(path, 3600)
+    if (!error && data) window.open(data.signedUrl, '_blank')
   }
 
   function exportCSV() {
@@ -148,7 +154,7 @@ export default function ExpenseTable({ expenses, businessId, onExpenseAdded, onE
                 <td style={{ padding: '10px 8px', fontWeight: 600, color: 'var(--text-primary)' }}>{fmt(e.amount, e.currency)}</td>
                 <td style={{ padding: '10px 8px' }}>
                   {e.receipt_url ? (
-                    <a href={e.receipt_url} target="_blank" rel="noreferrer" style={{ fontSize: '12px', color: 'var(--omnexia-accent)' }}>View</a>
+                    <button onClick={() => handleViewReceipt(e.receipt_url!)} style={{ background: 'none', border: 'none', padding: 0, fontSize: '12px', color: 'var(--omnexia-accent)', cursor: 'pointer' }}>View</button>
                   ) : (
                     <label style={{ cursor: 'pointer', fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <Upload size={11} /> {uploadingId === e.id ? 'Uploading…' : 'Upload'}

@@ -21,12 +21,17 @@ import { toast } from 'sonner'
 interface Invoice {
   id: string
   client_name: string
+  client_email: string | null
   total: number
+  subtotal: number | null
+  vat_rate: number | null
   currency: string
   status: string
   source: string
   due_date: string | null
   issued_date: string | null
+  line_items: { description: string; quantity: number; unit_price: number }[] | null
+  notes: string | null
 }
 
 interface Props {
@@ -36,6 +41,7 @@ interface Props {
   sourceFilter: 'all' | 'native' | 'pennylane'
   onStatusChange: (id: string, newStatus: string) => Promise<void>
   onCreateInvoice: (payload: InvoicePayload) => Promise<void>
+  onUpdateInvoice: (id: string, payload: InvoicePayload) => Promise<void>
   onImported?: () => void
 }
 
@@ -195,10 +201,12 @@ function InvoiceCard({
   invoice,
   isDragging,
   onStatusChange,
+  onEdit,
 }: {
   invoice: Invoice
   isDragging?: boolean
   onStatusChange: (id: string, status: string) => void
+  onEdit: (invoice: Invoice) => void
 }) {
   const tf = useTranslations('finance')
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
@@ -212,13 +220,14 @@ function InvoiceCard({
   return (
     <div
       ref={setNodeRef}
+      onClick={() => onEdit(invoice)}
       style={{
         ...style,
         backgroundColor: 'var(--bg-surface)',
         borderRadius: '10px',
         padding: '12px 14px',
         border: '1px solid var(--border)',
-        cursor: invoice.source === 'pennylane' ? 'default' : 'grab',
+        cursor: invoice.source === 'pennylane' ? 'pointer' : 'grab',
         opacity: isDragging ? 0.5 : 1,
         boxShadow: isDragging ? '0 8px 24px rgba(0,0,0,0.12)' : 'none',
         userSelect: 'none',
@@ -278,10 +287,11 @@ function InvoiceCard({
 // ---------------------------------------------------------------------------
 
 function Column({
-  colKey, label, color, invoices, onStatusChange,
+  colKey, label, color, invoices, onStatusChange, onEdit,
 }: {
   colKey: string; label: string; color: string; invoices: Invoice[]
   onStatusChange: (id: string, status: string) => void
+  onEdit: (invoice: Invoice) => void
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: colKey })
   const t = useTranslations('finance')
@@ -311,7 +321,7 @@ function Column({
           <p style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0', margin: 0 }}>{t('noInvoices')}</p>
         ) : (
           invoices.map(inv => (
-            <InvoiceCard key={inv.id} invoice={inv} onStatusChange={onStatusChange} />
+            <InvoiceCard key={inv.id} invoice={inv} onStatusChange={onStatusChange} onEdit={onEdit} />
           ))
         )}
       </div>
@@ -323,10 +333,11 @@ function Column({
 // Main board
 // ---------------------------------------------------------------------------
 
-export default function InvoiceBoard({ invoices, countryCode, businessVatRate, sourceFilter, onStatusChange, onCreateInvoice, onImported }: Props) {
+export default function InvoiceBoard({ invoices, countryCode, businessVatRate, sourceFilter, onStatusChange, onCreateInvoice, onUpdateInvoice, onImported }: Props) {
   const t = useTranslations('finance')
   const tc = useTranslations('common')
   const [modalOpen, setModalOpen] = useState(false)
+  const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
 
   // CSV import state
@@ -476,14 +487,16 @@ export default function InvoiceBoard({ invoices, countryCode, businessVatRate, s
               color={col.color}
               invoices={filtered.filter(inv => inv.status === col.key)}
               onStatusChange={applyStatusChange}
+              onEdit={setEditingInvoice}
             />
           ))}
         </div>
         <DragOverlay dropAnimation={{ duration: 150, easing: 'ease' }}>
-          {activeInvoice ? <InvoiceCard invoice={activeInvoice} isDragging onStatusChange={() => {}} /> : null}
+          {activeInvoice ? <InvoiceCard invoice={activeInvoice} isDragging onStatusChange={() => {}} onEdit={() => {}} /> : null}
         </DragOverlay>
       </DndContext>
 
+      {/* Create modal */}
       <InvoiceModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -491,6 +504,28 @@ export default function InvoiceBoard({ invoices, countryCode, businessVatRate, s
         countryCode={countryCode}
         businessVatRate={businessVatRate}
       />
+
+      {/* Edit modal */}
+      {editingInvoice && (
+        <InvoiceModal
+          key={editingInvoice.id}
+          open={!!editingInvoice}
+          onClose={() => setEditingInvoice(null)}
+          onSave={onCreateInvoice}
+          onUpdate={onUpdateInvoice}
+          invoiceId={editingInvoice.id}
+          initialData={{
+            client_name: editingInvoice.client_name,
+            client_email: editingInvoice.client_email ?? '',
+            line_items: editingInvoice.line_items ?? [],
+            vat_rate: editingInvoice.vat_rate ?? undefined,
+            due_date: editingInvoice.due_date ?? '',
+            notes: editingInvoice.notes ?? '',
+          }}
+          countryCode={countryCode}
+          businessVatRate={businessVatRate}
+        />
+      )}
     </div>
   )
 }

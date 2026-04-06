@@ -11,6 +11,16 @@ interface Props {
   open: boolean
   onClose: () => void
   onSave: (invoice: InvoicePayload) => Promise<void>
+  onUpdate?: (id: string, invoice: InvoicePayload) => Promise<void>
+  invoiceId?: string
+  initialData?: {
+    client_name?: string
+    client_email?: string
+    line_items?: LineItem[]
+    vat_rate?: number
+    due_date?: string
+    notes?: string
+  }
   countryCode: string
   businessVatRate?: number | null
 }
@@ -31,16 +41,16 @@ export interface InvoicePayload {
 
 const emptyLine = (): LineItem => ({ description: '', quantity: 1, unit_price: 0 })
 
-export default function InvoiceModal({ open, onClose, onSave, countryCode, businessVatRate }: Props) {
+export default function InvoiceModal({ open, onClose, onSave, onUpdate, invoiceId, initialData, countryCode, businessVatRate }: Props) {
   const t = useTranslations('finance')
   const tc = useTranslations('common')
   const defaultVat = businessVatRate ?? getVatRate(countryCode)
-  const [clientName, setClientName] = useState('')
-  const [clientEmail, setClientEmail] = useState('')
-  const [lines, setLines] = useState<LineItem[]>([emptyLine()])
-  const [vatRate, setVatRate] = useState(defaultVat)
-  const [dueDate, setDueDate] = useState('')
-  const [notes, setNotes] = useState('')
+  const [clientName, setClientName] = useState(initialData?.client_name ?? '')
+  const [clientEmail, setClientEmail] = useState(initialData?.client_email ?? '')
+  const [lines, setLines] = useState<LineItem[]>(initialData?.line_items?.length ? initialData.line_items : [emptyLine()])
+  const [vatRate, setVatRate] = useState(initialData?.vat_rate ?? defaultVat)
+  const [dueDate, setDueDate] = useState(initialData?.due_date ?? '')
+  const [notes, setNotes] = useState(initialData?.notes ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -62,7 +72,7 @@ export default function InvoiceModal({ open, onClose, onSave, countryCode, busin
     setError('')
     setSaving(true)
     try {
-      await onSave({
+      const payload: InvoicePayload = {
         client_name: clientName.trim(),
         client_email: clientEmail.trim(),
         line_items: lines.filter(l => l.description.trim()),
@@ -74,9 +84,14 @@ export default function InvoiceModal({ open, onClose, onSave, countryCode, busin
         notes: notes.trim(),
         currency: 'EUR',
         source: 'native',
-      })
-      // Reset
-      setClientName(''); setClientEmail(''); setLines([emptyLine()]); setVatRate(defaultVat); setDueDate(''); setNotes('')
+      }
+      if (invoiceId && onUpdate) {
+        await onUpdate(invoiceId, payload)
+      } else {
+        await onSave(payload)
+        // Reset only on create
+        setClientName(''); setClientEmail(''); setLines([emptyLine()]); setVatRate(defaultVat); setDueDate(''); setNotes('')
+      }
       onClose()
     } catch {
       setError('Failed to save invoice. Please try again.')
@@ -90,7 +105,7 @@ export default function InvoiceModal({ open, onClose, onSave, countryCode, busin
       <div style={{ backgroundColor: 'var(--bg-surface)', borderRadius: '16px', width: '100%', maxWidth: '640px', maxHeight: '90vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
-          <h2 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>{t('createInvoice')}</h2>
+          <h2 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>{invoiceId ? t('editInvoice') : t('createInvoice')}</h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}>
             <X size={18} color="var(--text-muted)" />
           </button>

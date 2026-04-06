@@ -26,6 +26,8 @@ interface Invoice {
   source: string
   due_date: string | null
   issued_date: string | null
+  line_items: { description: string; quantity: number; unit_price: number }[] | null
+  notes: string | null
 }
 
 interface Expense {
@@ -106,6 +108,23 @@ export default function FinancePage() {
   async function handleStatusChange(id: string, newStatus: string) {
     await supabase.from('invoices').update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', id)
     setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, status: newStatus } : inv))
+  }
+
+  async function handleUpdateInvoice(id: string, payload: InvoicePayload) {
+    const { error } = await supabase.from('invoices').update({
+      client_name: payload.client_name,
+      client_email: payload.client_email,
+      line_items: payload.line_items,
+      subtotal: payload.subtotal,
+      vat_rate: payload.vat_rate,
+      vat_amount: payload.vat_amount,
+      total: payload.total,
+      due_date: payload.due_date,
+      notes: payload.notes,
+      updated_at: new Date().toISOString(),
+    }).eq('id', id)
+    if (error) throw error
+    setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, ...payload } : inv))
   }
 
   async function handleCreateInvoice(payload: InvoicePayload) {
@@ -229,6 +248,7 @@ export default function FinancePage() {
         sourceFilter={sourceFilter}
         onStatusChange={handleStatusChange}
         onCreateInvoice={handleCreateInvoice}
+        onUpdateInvoice={handleUpdateInvoice}
         onImported={load}
       />
 
