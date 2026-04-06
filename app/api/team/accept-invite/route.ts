@@ -15,6 +15,21 @@ export async function POST(request: Request) {
   const admin = createAdminClient()
   const emailToMatch = inviteEmail ?? user.email!
 
+  // Read module_access from the placeholder employee record (set by owner at invite time)
+  const { data: empRow } = await admin
+    .from('employees')
+    .select('module_access')
+    .eq('business_id', businessId)
+    .eq('email', emailToMatch)
+    .single()
+
+  const moduleAccess = empRow?.module_access ?? {
+    communications: true,
+    finance: false,
+    planning: true,
+    team: false,
+  }
+
   // Update the users row: link to business, mark as employee, complete onboarding
   const { error: userError } = await admin
     .from('users')
@@ -22,6 +37,7 @@ export async function POST(request: Request) {
       business_id: businessId,
       role: 'employee',
       onboarding_complete: true,
+      module_access: moduleAccess,
     })
     .eq('id', user.id)
 

@@ -29,7 +29,7 @@ export async function POST(request: Request) {
   const businessName = (inviterRow.businesses as unknown as { name: string } | null)?.name ?? 'your company'
   const inviterName = inviterRow.full_name ?? user.email ?? 'A team member'
 
-  // Insert placeholder employee record
+  // Insert placeholder employee record (store moduleAccess so it can be applied on accept)
   const { data: emp, error: empError } = await admin
     .from('employees')
     .insert({
@@ -39,6 +39,7 @@ export async function POST(request: Request) {
       role_title: role,
       user_id: null,
       status: 'invited',
+      module_access: moduleAccess ?? null,
     })
     .select()
     .single()

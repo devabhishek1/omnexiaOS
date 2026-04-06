@@ -92,14 +92,16 @@ CREATE POLICY users_insert_own ON public.users
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE public.employees (
-  id          uuid NOT NULL DEFAULT gen_random_uuid(),
-  business_id uuid NULL,
-  user_id     uuid NULL,
-  full_name   text NOT NULL,
-  email       text NOT NULL,
-  phone       text NULL,
-  role_title  text NULL,
-  created_at  timestamptz NULL DEFAULT now(),
+  id            uuid NOT NULL DEFAULT gen_random_uuid(),
+  business_id   uuid NULL,
+  user_id       uuid NULL,
+  full_name     text NOT NULL,
+  email         text NOT NULL,
+  phone         text NULL,
+  role_title    text NULL,
+  status        text NULL DEFAULT 'invited',
+  module_access jsonb NULL DEFAULT NULL,
+  created_at    timestamptz NULL DEFAULT now(),
   CONSTRAINT employees_pkey            PRIMARY KEY (id),
   CONSTRAINT employees_business_id_fkey FOREIGN KEY (business_id) REFERENCES businesses (id) ON DELETE CASCADE,
   CONSTRAINT employees_user_id_fkey     FOREIGN KEY (user_id)      REFERENCES users (id)      ON DELETE CASCADE

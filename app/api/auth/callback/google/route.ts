@@ -147,6 +147,23 @@ export async function GET(request: Request) {
   const inviteEmail = searchParams.get('invite_email')
 
   if (inviteBusinessId) {
+    const emailToMatch = inviteEmail ?? user.email!
+
+    // Read module_access from the placeholder employee record (set by owner at invite time)
+    const { data: empRow } = await admin
+      .from('employees')
+      .select('module_access')
+      .eq('business_id', inviteBusinessId)
+      .eq('email', emailToMatch)
+      .single()
+
+    const moduleAccess = empRow?.module_access ?? {
+      communications: true,
+      finance: false,
+      planning: true,
+      team: false,
+    }
+
     // Link the new user to the business as an employee
     const { error: userUpdateError } = await admin
       .from('users')
@@ -154,12 +171,12 @@ export async function GET(request: Request) {
         business_id: inviteBusinessId,
         role: 'employee',
         onboarding_complete: true,
+        module_access: moduleAccess,
       })
       .eq('id', user.id)
     if (userUpdateError) console.error('[callback] user update error (invite):', userUpdateError.message)
 
     // Link the placeholder employee record to this user
-    const emailToMatch = inviteEmail ?? user.email!
     const { error: empError } = await admin
       .from('employees')
       .update({ user_id: user.id, status: 'active' })
