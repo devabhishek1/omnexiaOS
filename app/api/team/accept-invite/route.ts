@@ -30,19 +30,26 @@ export async function POST(request: Request) {
     team: false,
   }
 
-  // Update the users row: link to business, mark as employee, complete onboarding
+  // Upsert the users row — handles both fresh signups and cases where the row
+  // was manually deleted (recreates it so FK constraints on employees don't fail)
   const { error: userError } = await admin
     .from('users')
-    .update({
-      business_id: businessId,
-      role: 'employee',
-      onboarding_complete: true,
-      module_access: moduleAccess,
-    })
-    .eq('id', user.id)
+    .upsert(
+      {
+        id: user.id,
+        email: user.email!,
+        full_name: user.user_metadata?.full_name ?? user.email?.split('@')[0] ?? null,
+        avatar_url: user.user_metadata?.avatar_url ?? null,
+        business_id: businessId,
+        role: 'employee',
+        onboarding_complete: true,
+        module_access: moduleAccess,
+      },
+      { onConflict: 'id' }
+    )
 
   if (userError) {
-    console.error('[accept-invite] users update error:', userError.message)
+    console.error('[accept-invite] users upsert error:', userError.message)
     return NextResponse.json({ error: 'Failed to link user' }, { status: 500 })
   }
 

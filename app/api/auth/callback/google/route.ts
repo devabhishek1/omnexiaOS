@@ -164,17 +164,24 @@ export async function GET(request: Request) {
       team: false,
     }
 
-    // Link the new user to the business as an employee
+    // Upsert the users row — handles both fresh signups and cases where the row
+    // was manually deleted (recreates it so FK constraints on employees don't fail)
     const { error: userUpdateError } = await admin
       .from('users')
-      .update({
-        business_id: inviteBusinessId,
-        role: 'employee',
-        onboarding_complete: true,
-        module_access: moduleAccess,
-      })
-      .eq('id', user.id)
-    if (userUpdateError) console.error('[callback] user update error (invite):', userUpdateError.message)
+      .upsert(
+        {
+          id: user.id,
+          email: user.email!,
+          full_name: user.user_metadata?.full_name ?? user.email?.split('@')[0] ?? null,
+          avatar_url: user.user_metadata?.avatar_url ?? null,
+          business_id: inviteBusinessId,
+          role: 'employee',
+          onboarding_complete: true,
+          module_access: moduleAccess,
+        },
+        { onConflict: 'id' }
+      )
+    if (userUpdateError) console.error('[callback] user upsert error (invite):', userUpdateError.message)
 
     // Link the placeholder employee record to this user
     const { error: empError } = await admin
