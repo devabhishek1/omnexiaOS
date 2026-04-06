@@ -114,7 +114,7 @@ export default function IntegrationsTab() {
       provider: 'google',
       options: {
         scopes: 'https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar',
-        redirectTo: `${window.location.origin}/api/auth/callback/google?from=settings`,
+        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin}/api/auth/callback/google?from=settings`,
         queryParams: { access_type: 'offline', prompt: 'consent' },
       },
     })

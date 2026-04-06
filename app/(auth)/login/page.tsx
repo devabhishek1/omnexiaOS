@@ -69,15 +69,22 @@ export default function LoginPage() {
 
   async function handleGoogle() {
     setGoogleLoading(true)
+    setServerError(null)
     const supabase = createClient()
-    await supabase.auth.signInWithOAuth({
+    // Always use NEXT_PUBLIC_APP_URL so the redirectTo matches the Supabase allowlist
+    // regardless of whether the user is on www., a preview URL, etc.
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/api/auth/callback/google`,
-        // No gmail/calendar scopes here — those are only requested during Gmail connect in onboarding/settings
+        redirectTo: `${appUrl}/api/auth/callback/google`,
       },
     })
-    setGoogleLoading(false)
+    if (error) {
+      setServerError('Google sign-in failed. Please try again.')
+      setGoogleLoading(false)
+    }
+    // On success the browser redirects — no need to setGoogleLoading(false)
   }
 
   return (

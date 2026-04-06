@@ -11,6 +11,13 @@ import { headers } from 'next/headers'
 const EMPLOYEE_MODULES = ['communications', 'finance', 'planning', 'team'] as const
 // Routes only admins can access
 const ADMIN_ONLY_PATHS = ['/overview', '/settings']
+// Module path → module_access key mapping
+const MODULE_PATH_MAP: Record<string, string> = {
+  '/communications': 'communications',
+  '/finance': 'finance',
+  '/planning': 'planning',
+  '/team': 'team',
+}
 
 export default async function DashboardLayout({
   children,
@@ -50,17 +57,24 @@ export default async function DashboardLayout({
     redirect('/onboarding')
   }
 
-  // Route guard: employees cannot access overview or settings
+  // Route guard: employees have restricted access
   if (userProfile.role !== 'admin') {
     const headersList = await headers()
     const pathname = headersList.get('x-pathname') ?? ''
+    const moduleAccess = (userProfile.module_access ?? {}) as Record<string, boolean>
 
+    const firstModule = EMPLOYEE_MODULES.find(m => moduleAccess[m] === true)
+    const fallback = firstModule ? `/${firstModule}` : '/communications'
+
+    // Block admin-only pages
     const isAdminOnlyPath = ADMIN_ONLY_PATHS.some(p => pathname.startsWith(p))
-    if (isAdminOnlyPath) {
-      // Redirect to first accessible module
-      const moduleAccess = (userProfile.module_access ?? {}) as Record<string, boolean>
-      const firstModule = EMPLOYEE_MODULES.find(m => moduleAccess[m] === true)
-      redirect(firstModule ? `/${firstModule}` : '/communications')
+    if (isAdminOnlyPath) redirect(fallback)
+
+    // Block module pages the employee doesn't have access to
+    const matchedModule = Object.entries(MODULE_PATH_MAP).find(([p]) => pathname.startsWith(p))
+    if (matchedModule) {
+      const [, moduleKey] = matchedModule
+      if (!moduleAccess[moduleKey]) redirect(fallback)
     }
   }
 

@@ -113,18 +113,22 @@ function SignupForm() {
 
   async function handleGoogle() {
     setGoogleLoading(true)
+    setServerError(null)
     const supabase = createClient()
-    const callbackUrl = new URL(`${window.location.origin}/api/auth/callback/google`)
+    // Always use NEXT_PUBLIC_APP_URL so redirectTo matches the Supabase allowlist
+    // regardless of whether the user is on www., a preview URL, etc.
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin
+    const callbackUrl = new URL(`${appUrl}/api/auth/callback/google`)
     if (inviteBusinessId) callbackUrl.searchParams.set('invite', inviteBusinessId)
     if (inviteEmail) callbackUrl.searchParams.set('invite_email', inviteEmail)
-    await supabase.auth.signInWithOAuth({
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo: callbackUrl.toString(),
-        // No gmail/calendar scopes — those are only for the business owner's Gmail connect in onboarding/settings
-      },
+      options: { redirectTo: callbackUrl.toString() },
     })
-    setGoogleLoading(false)
+    if (error) {
+      setServerError('Google sign-in failed. Please try again.')
+      setGoogleLoading(false)
+    }
   }
 
   return (

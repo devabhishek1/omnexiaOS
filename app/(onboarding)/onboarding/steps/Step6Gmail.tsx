@@ -55,7 +55,7 @@ export default function Step6Gmail({ data, onChange, onAdvance }: Props) {
         provider: 'google',
         options: {
           scopes: 'https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar',
-          redirectTo: `${window.location.origin}/api/auth/callback/google?from=onboarding`,
+          redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin}/api/auth/callback/google?from=onboarding`,
           queryParams: { access_type: 'offline', prompt: 'consent' },
         },
       })
