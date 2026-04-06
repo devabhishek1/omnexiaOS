@@ -281,6 +281,9 @@
     "noActivityRecorded": "Noch keine Aktivität aufgezeichnet.",
     "deactivateTitle": "{name} deaktivieren?",
     "deactivateDesc": "Dadurch wird der Zugriff sofort entfernt. Sie können sie später über ihr Profil reaktivieren.",
+    "removeTitle": "{name} aus dem Team entfernen?",
+    "removeDesc": "Dadurch wird der Mitarbeiterdatensatz dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
+    "removeFromTeamConfirm": "Entfernen",
     "memberCount": "{count} Mitglieder"
   },
   "settings": {

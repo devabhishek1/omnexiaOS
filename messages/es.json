@@ -281,6 +281,9 @@
     "noActivityRecorded": "Aún no se ha registrado actividad.",
     "deactivateTitle": "¿Desactivar a {name}?",
     "deactivateDesc": "Esto eliminará su acceso inmediatamente. Puedes reactivarlos desde su perfil más adelante.",
+    "removeTitle": "¿Eliminar a {name} del equipo?",
+    "removeDesc": "Esto eliminará permanentemente su registro de empleado. Esta acción no se puede deshacer.",
+    "removeFromTeamConfirm": "Eliminar",
     "memberCount": "{count} miembros"
   },
   "settings": {

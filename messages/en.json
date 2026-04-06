@@ -281,6 +281,9 @@
     "noActivityRecorded": "No activity recorded yet.",
     "deactivateTitle": "Deactivate {name}?",
     "deactivateDesc": "This will remove their access immediately. You can reactivate them from their profile later.",
+    "removeTitle": "Remove {name} from team?",
+    "removeDesc": "This will permanently delete their employee record. This action cannot be undone.",
+    "removeFromTeamConfirm": "Remove",
     "memberCount": "{count} members"
   },
   "settings": {

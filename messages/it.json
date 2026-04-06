@@ -281,6 +281,9 @@
     "noActivityRecorded": "Nessuna attività registrata.",
     "deactivateTitle": "Disattivare {name}?",
     "deactivateDesc": "Ciò rimuoverà immediatamente il loro accesso. Puoi riattivarlo dal loro profilo in seguito.",
+    "removeTitle": "Rimuovere {name} dal team?",
+    "removeDesc": "Questa operazione eliminerà definitivamente il loro record dipendente. Questa azione non può essere annullata.",
+    "removeFromTeamConfirm": "Rimuovi",
     "memberCount": "{count} membri"
   },
   "settings": {

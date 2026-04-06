@@ -26,6 +26,7 @@ interface Props {
   currentUserId: string
   onEditPermissions: (employee: Employee, user: User | null) => void
   onDeactivate: (employee: Employee) => void
+  onRemove: (employee: Employee) => void
 }
 
 const roleColors: Record<string, { bg: string; color: string }> = {
@@ -45,10 +46,11 @@ function initials(name: string) {
   return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
 }
 
-export default function EmployeeTable({ employees, users, currentUserId, onEditPermissions, onDeactivate }: Props) {
+export default function EmployeeTable({ employees, users, currentUserId, onEditPermissions, onDeactivate, onRemove }: Props) {
   const t = useTranslations('team')
   const tc = useTranslations('common')
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null)
 
   function getUserForEmployee(emp: Employee): User | null {
     return users.find(u => u.id === emp.user_id) ?? null
@@ -134,28 +136,45 @@ export default function EmployeeTable({ employees, users, currentUserId, onEditP
                       {t('viewProfile')} <ChevronRight size={12} />
                     </Link>
                     <button
-                      onClick={() => setOpenMenuId(openMenuId === emp.id ? null : emp.id)}
+                      onClick={(e) => {
+                        if (openMenuId === emp.id) {
+                          setOpenMenuId(null)
+                          setMenuPos(null)
+                        } else {
+                          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                          setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right })
+                          setOpenMenuId(emp.id)
+                        }
+                      }}
                       style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: '4px', display: 'flex', alignItems: 'center' }}
                     >
                       <MoreHorizontal size={15} color="var(--text-muted)" />
                     </button>
 
-                    {openMenuId === emp.id && (
+                    {openMenuId === emp.id && menuPos && (
                       <>
-                        <div style={{ position: 'fixed', inset: 0, zIndex: 49 }} onClick={() => setOpenMenuId(null)} />
-                        <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: '4px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '8px', boxShadow: '0 4px 16px rgba(0,0,0,0.1)', zIndex: 50, minWidth: '160px' }}>
+                        <div style={{ position: 'fixed', inset: 0, zIndex: 49 }} onClick={() => { setOpenMenuId(null); setMenuPos(null) }} />
+                        <div style={{ position: 'fixed', top: menuPos.top, right: menuPos.right, backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '8px', boxShadow: '0 4px 16px rgba(0,0,0,0.1)', zIndex: 50, minWidth: '160px' }}>
                           <button
-                            onClick={() => { onEditPermissions(emp, user); setOpenMenuId(null) }}
+                            onClick={() => { onEditPermissions(emp, user); setOpenMenuId(null); setMenuPos(null) }}
                             style={{ display: 'block', width: '100%', padding: '10px 14px', background: 'none', border: 'none', textAlign: 'left', fontSize: '13px', cursor: 'pointer', color: 'var(--text-secondary)' }}
                           >
                             {t('editPermissions')}
                           </button>
                           {status !== 'deactivated' && (
                             <button
-                              onClick={() => { onDeactivate(emp); setOpenMenuId(null) }}
+                              onClick={() => { onDeactivate(emp); setOpenMenuId(null); setMenuPos(null) }}
                               style={{ display: 'block', width: '100%', padding: '10px 14px', background: 'none', border: 'none', textAlign: 'left', fontSize: '13px', cursor: 'pointer', color: '#DC2626' }}
                             >
                               {t('deactivate')}
+                            </button>
+                          )}
+                          {!isMe && (
+                            <button
+                              onClick={() => { onRemove(emp); setOpenMenuId(null); setMenuPos(null) }}
+                              style={{ display: 'block', width: '100%', padding: '10px 14px', background: 'none', border: 'none', textAlign: 'left', fontSize: '13px', cursor: 'pointer', color: '#DC2626', borderTop: '1px solid var(--border)' }}
+                            >
+                              {t('removeFromTeam')}
                             </button>
                           )}
                         </div>

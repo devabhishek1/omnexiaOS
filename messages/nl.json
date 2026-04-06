@@ -281,6 +281,9 @@
     "noActivityRecorded": "Nog geen activiteit geregistreerd.",
     "deactivateTitle": "{name} deactiveren?",
     "deactivateDesc": "Hiermee wordt de toegang onmiddellijk verwijderd. U kunt ze later opnieuw activeren via hun profiel.",
+    "removeTitle": "{name} uit het team verwijderen?",
+    "removeDesc": "Hiermee wordt hun werknemersrecord definitief verwijderd. Deze actie kan niet ongedaan worden gemaakt.",
+    "removeFromTeamConfirm": "Verwijderen",
     "memberCount": "{count} leden"
   },
   "settings": {

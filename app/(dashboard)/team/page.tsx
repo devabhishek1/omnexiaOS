@@ -28,6 +28,7 @@ export default function TeamPage() {
   const [permissionsEmployee, setPermissionsEmployee] = useState<Employee | null>(null)
   const [permissionsUser, setPermissionsUser] = useState<User | null>(null)
   const [deactivateTarget, setDeactivateTarget] = useState<Employee | null>(null)
+  const [removeTarget, setRemoveTarget] = useState<Employee | null>(null)
 
   const supabase = createClient()
 
@@ -92,6 +93,17 @@ export default function TeamPage() {
     await logActivity(supabase, { businessId, userId: currentUserId, action: 'permissions.updated', targetType: 'user', targetId: userId })
   }
 
+  async function handleRemoveConfirm() {
+    if (!removeTarget) return
+    if (removeTarget.user_id) {
+      await supabase.from('users').update({ status: 'deactivated' }).eq('id', removeTarget.user_id)
+    }
+    await supabase.from('employees').delete().eq('id', removeTarget.id)
+    await logActivity(supabase, { businessId, userId: currentUserId, action: 'employee.removed', targetType: 'employee', targetId: removeTarget.id, metadata: { name: removeTarget.full_name } })
+    setRemoveTarget(null)
+    load()
+  }
+
   async function handleDeactivateConfirm() {
     if (!deactivateTarget) return
     await supabase.from('employees').update({ role_title: deactivateTarget.role_title }).eq('id', deactivateTarget.id)
@@ -137,6 +149,7 @@ export default function TeamPage() {
         currentUserId={currentUserId}
         onEditPermissions={(emp, user) => { setPermissionsEmployee(emp); setPermissionsUser(user) }}
         onDeactivate={(emp) => setDeactivateTarget(emp)}
+        onRemove={(emp) => setRemoveTarget(emp)}
       />
 
       {/* Activity log */}
@@ -152,6 +165,20 @@ export default function TeamPage() {
         onClose={() => { setPermissionsEmployee(null); setPermissionsUser(null) }}
         onSave={handleSavePermissions}
       />
+
+      {/* Remove confirm */}
+      {removeTarget && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+          <div style={{ backgroundColor: 'var(--bg-surface)', borderRadius: '16px', maxWidth: '400px', width: '100%', padding: '28px 24px', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
+            <h2 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 8px' }}>{t('removeTitle', { name: removeTarget.full_name })}</h2>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 20px' }}>{t('removeDesc')}</p>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button onClick={() => setRemoveTarget(null)} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--border)', background: 'none', fontSize: '13px', cursor: 'pointer', color: 'var(--text-secondary)' }}>{tc('cancel')}</button>
+              <button onClick={handleRemoveConfirm} style={{ padding: '8px 16px', borderRadius: '8px', backgroundColor: '#DC2626', color: '#fff', border: 'none', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>{t('removeFromTeamConfirm')}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Deactivate confirm */}
       {deactivateTarget && (
