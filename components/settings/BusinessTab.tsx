@@ -211,7 +211,7 @@ export default function BusinessTab() {
           style={{ ...inputStyle, minHeight: '90px', resize: 'vertical' }}
           value={form.ai_context}
           onChange={e => setForm(f => ({ ...f, ai_context: e.target.value }))}
-          placeholder="e.g. Business hours: Mon–Fri 9am–6pm. Services: web design, branding. Preferred tone: professional and friendly."
+          placeholder={t('aiContextPlaceholder')}
         />
       </div>
 

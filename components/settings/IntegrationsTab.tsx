@@ -408,12 +408,12 @@ export default function IntegrationsTab() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span style={greenDotStyle} />
-                <span style={statusTextStyle}>Connected via Google account ({gmail.email})</span>
+                <span style={statusTextStyle}>{t('calendarConnectedVia', { email: gmail.email ?? '' })}</span>
               </div>
-              <span style={mutedTextStyle}>Sync shifts and approved time-off to your Google Calendar.</span>
+              <span style={mutedTextStyle}>{t('calendarSyncDesc')}</span>
               <div style={{ marginTop: '8px' }}>
                 <button onClick={syncCalendar} disabled={calendarSyncing} style={{ ...primaryBtnStyle, opacity: calendarSyncing ? 0.7 : 1, cursor: calendarSyncing ? 'not-allowed' : 'pointer' }}>
-                  {calendarSyncing ? 'Syncing…' : 'Sync planning to Calendar'}
+                  {calendarSyncing ? t('calendarSyncing') : t('calendarSyncBtn')}
                 </button>
               </div>
             </div>
@@ -421,7 +421,7 @@ export default function IntegrationsTab() {
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
                 <span style={redDotStyle} />
-                <span style={statusTextStyle}>Connect Gmail first to enable Google Calendar sync</span>
+                <span style={statusTextStyle}>{t('calendarConnectGmailFirst')}</span>
               </div>
             </div>
           )}
