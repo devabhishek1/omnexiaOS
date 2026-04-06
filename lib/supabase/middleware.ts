@@ -44,7 +44,11 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  if (user && isAuthPage) {
+  // Don't redirect away from invite signup — even if authenticated, the user must
+  // be able to accept the invite (links their existing session to the new business)
+  const hasInvite = request.nextUrl.searchParams.has('invite')
+
+  if (user && isAuthPage && !hasInvite) {
     return NextResponse.redirect(new URL('/overview', request.url))
   }
 

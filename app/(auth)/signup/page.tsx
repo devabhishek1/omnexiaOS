@@ -61,6 +61,7 @@ function SignupForm() {
   const [businessName, setBusinessName] = useState<string | null>(null)
   const [serverError, setServerError] = useState<string | null>(null)
   const [googleLoading, setGoogleLoading] = useState(false)
+  const [autoAccepting, setAutoAccepting] = useState(false)
 
   const {
     register,
@@ -79,6 +80,26 @@ function SignupForm() {
       .then(d => { if (d.businessName) setBusinessName(d.businessName) })
       .catch(() => {})
   }, [inviteBusinessId])
+
+  // If the user already has an active session (e.g. previous failed attempt),
+  // skip the signup form and directly accept the invite
+  useEffect(() => {
+    if (!inviteBusinessId) return
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      setAutoAccepting(true)
+      fetch('/api/team/accept-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ businessId: inviteBusinessId, inviteEmail: inviteEmail ?? user.email }),
+      }).then(() => router.push('/overview'))
+        .catch(() => {
+          setAutoAccepting(false)
+          setServerError('Failed to accept invitation. Please try again.')
+        })
+    })
+  }, [inviteBusinessId, inviteEmail, router])
 
   async function onSubmit(data: SignupForm) {
     setServerError(null)
@@ -129,6 +150,18 @@ function SignupForm() {
       setServerError('Google sign-in failed. Please try again.')
       setGoogleLoading(false)
     }
+  }
+
+  if (autoAccepting) {
+    return (
+      <main>
+        <AuthCard>
+          <p style={{ textAlign: 'center', fontSize: '14px', color: 'var(--text-muted)', padding: '24px 0' }}>
+            Joining {businessName ?? 'workspace'}…
+          </p>
+        </AuthCard>
+      </main>
+    )
   }
 
   return (
