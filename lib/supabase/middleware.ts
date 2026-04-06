@@ -29,6 +29,9 @@ export async function updateSession(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
+  // Pass pathname to server layouts via header (used for role-based route guards)
+  supabaseResponse.headers.set('x-pathname', request.nextUrl.pathname)
+
   const path = request.nextUrl.pathname
   const isAuthPage = path.startsWith('/login') || path.startsWith('/signup')
   // isOnboarding will be used in a later phase for onboarding guard logic

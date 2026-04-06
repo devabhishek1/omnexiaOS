@@ -74,8 +74,7 @@ export default function LoginPage() {
       provider: 'google',
       options: {
         redirectTo: `${window.location.origin}/api/auth/callback/google`,
-        scopes:
-          'https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar',
+        // No gmail/calendar scopes here — those are only requested during Gmail connect in onboarding/settings
       },
     })
     setGoogleLoading(false)

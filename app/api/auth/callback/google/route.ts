@@ -29,6 +29,8 @@ export async function GET(request: Request) {
   const admin = createAdminClient()
 
   // Always upsert public users row (safe even if business_id doesn't exist yet)
+  // Use 'employee' as default role — will be overridden to 'admin' during onboarding for business owners
+  const isInvite = !!searchParams.get('invite')
   const { error: upsertError } = await admin
     .from('users')
     .upsert(
@@ -37,7 +39,7 @@ export async function GET(request: Request) {
         email: user.email!,
         full_name: user.user_metadata?.full_name ?? user.email?.split('@')[0] ?? null,
         avatar_url: user.user_metadata?.avatar_url ?? null,
-        role: 'admin',
+        role: isInvite ? 'employee' : 'admin',
       },
       { onConflict: 'id', ignoreDuplicates: true }
     )
@@ -138,6 +140,34 @@ export async function GET(request: Request) {
     redirectUrl.searchParams.set('gmail_connected', 'true')
     redirectUrl.searchParams.set('gmail_email', user.email ?? '')
     return NextResponse.redirect(redirectUrl.toString())
+  }
+
+  // ── Invited employee flow ─────────────────────────────────────────────────
+  const inviteBusinessId = searchParams.get('invite')
+  const inviteEmail = searchParams.get('invite_email')
+
+  if (inviteBusinessId) {
+    // Link the new user to the business as an employee
+    const { error: userUpdateError } = await admin
+      .from('users')
+      .update({
+        business_id: inviteBusinessId,
+        role: 'employee',
+        onboarding_complete: true,
+      })
+      .eq('id', user.id)
+    if (userUpdateError) console.error('[callback] user update error (invite):', userUpdateError.message)
+
+    // Link the placeholder employee record to this user
+    const emailToMatch = inviteEmail ?? user.email!
+    const { error: empError } = await admin
+      .from('employees')
+      .update({ user_id: user.id, status: 'active' })
+      .eq('business_id', inviteBusinessId)
+      .eq('email', emailToMatch)
+    if (empError) console.error('[callback] employee link error (invite):', empError.message)
+
+    return NextResponse.redirect(`${origin}/overview`)
   }
 
   // ── Normal login flow ─────────────────────────────────────────────────────

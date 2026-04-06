@@ -1,8 +1,8 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod/v4'
@@ -44,7 +44,21 @@ function blurInput(e: React.FocusEvent<HTMLInputElement>, hasError: boolean) {
 }
 
 export default function SignupPage() {
+  return (
+    <Suspense>
+      <SignupForm />
+    </Suspense>
+  )
+}
+
+function SignupForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const inviteBusinessId = searchParams.get('invite')
+  const inviteEmail = searchParams.get('email')
+  const isInvite = !!inviteBusinessId
+
+  const [businessName, setBusinessName] = useState<string | null>(null)
   const [serverError, setServerError] = useState<string | null>(null)
   const [googleLoading, setGoogleLoading] = useState(false)
 
@@ -52,34 +66,62 @@ export default function SignupPage() {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<SignupForm>({ resolver: zodResolver(signupSchema) })
+  } = useForm<SignupForm>({
+    resolver: zodResolver(signupSchema),
+    defaultValues: { email: inviteEmail ?? '' },
+  })
+
+  // Fetch business name to display on invite page
+  useEffect(() => {
+    if (!inviteBusinessId) return
+    fetch(`/api/team/invite-info?invite=${inviteBusinessId}`)
+      .then(r => r.json())
+      .then(d => { if (d.businessName) setBusinessName(d.businessName) })
+      .catch(() => {})
+  }, [inviteBusinessId])
 
   async function onSubmit(data: SignupForm) {
     setServerError(null)
     const supabase = createClient()
+
     const { error } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
-      options: {
-        data: { full_name: data.fullName },
-      },
+      options: { data: { full_name: data.fullName } },
     })
     if (error) {
       setServerError(error.message)
       return
     }
-    router.push('/onboarding')
+
+    if (isInvite) {
+      // Link this user to the business — no onboarding needed
+      const res = await fetch('/api/team/accept-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ businessId: inviteBusinessId, inviteEmail: data.email }),
+      })
+      if (!res.ok) {
+        setServerError('Failed to accept invitation. Please try again.')
+        return
+      }
+      router.push('/overview')
+    } else {
+      router.push('/onboarding')
+    }
   }
 
   async function handleGoogle() {
     setGoogleLoading(true)
     const supabase = createClient()
+    const callbackUrl = new URL(`${window.location.origin}/api/auth/callback/google`)
+    if (inviteBusinessId) callbackUrl.searchParams.set('invite', inviteBusinessId)
+    if (inviteEmail) callbackUrl.searchParams.set('invite_email', inviteEmail)
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/api/auth/callback/google`,
-        scopes:
-          'https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar',
+        redirectTo: callbackUrl.toString(),
+        // No gmail/calendar scopes — those are only for the business owner's Gmail connect in onboarding/settings
       },
     })
     setGoogleLoading(false)
@@ -88,20 +130,43 @@ export default function SignupPage() {
   return (
     <main>
       <AuthCard>
-        <h1
-          style={{
-            fontSize: '20px',
-            fontWeight: 700,
-            color: 'var(--text-primary)',
-            marginBottom: '6px',
-            letterSpacing: '-0.01em',
-          }}
-        >
-          Create your account
-        </h1>
-        <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '28px' }}>
-          Set up Omnexia for your business in minutes.
-        </p>
+        {isInvite ? (
+          <>
+            <h1
+              style={{
+                fontSize: '20px',
+                fontWeight: 700,
+                color: 'var(--text-primary)',
+                marginBottom: '6px',
+                letterSpacing: '-0.01em',
+              }}
+            >
+              {businessName ? `Join ${businessName}` : 'Accept your invitation'}
+            </h1>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '28px' }}>
+              {businessName
+                ? `${businessName} has invited you to collaborate on Omnexia.`
+                : 'Create your account to get started.'}
+            </p>
+          </>
+        ) : (
+          <>
+            <h1
+              style={{
+                fontSize: '20px',
+                fontWeight: 700,
+                color: 'var(--text-primary)',
+                marginBottom: '6px',
+                letterSpacing: '-0.01em',
+              }}
+            >
+              Create your account
+            </h1>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '28px' }}>
+              Set up Omnexia for your business in minutes.
+            </p>
+          </>
+        )}
 
         <form onSubmit={handleSubmit(onSubmit)} noValidate>
           <div style={{ marginBottom: '16px' }}>
@@ -127,18 +192,21 @@ export default function SignupPage() {
 
           <div style={{ marginBottom: '16px' }}>
             <label htmlFor="signup-email" style={labelStyle}>
-              Work email
+              {isInvite ? 'Email' : 'Work email'}
             </label>
             <input
               id="signup-email"
               type="email"
               autoComplete="email"
               placeholder="jane@company.com"
+              readOnly={!!inviteEmail}
               style={{
                 ...inputStyle,
                 borderColor: errors.email ? 'var(--red)' : 'var(--border-default)',
+                backgroundColor: inviteEmail ? 'var(--bg-elevated)' : 'var(--bg-surface)',
+                color: inviteEmail ? 'var(--text-muted)' : 'var(--text-primary)',
               }}
-              onFocus={focusInput}
+              onFocus={inviteEmail ? undefined : focusInput}
               {...register('email', {
                 onBlur: (e) => blurInput(e, !!errors.email),
               })}
@@ -174,7 +242,9 @@ export default function SignupPage() {
               cursor: isSubmitting ? 'not-allowed' : 'pointer',
             }}
           >
-            {isSubmitting ? 'Creating account…' : 'Create account'}
+            {isSubmitting
+              ? isInvite ? 'Joining…' : 'Creating account…'
+              : isInvite ? 'Join workspace' : 'Create account'}
           </button>
         </form>
 
@@ -182,20 +252,22 @@ export default function SignupPage() {
 
         <GoogleButton onClick={handleGoogle} loading={googleLoading} />
 
-        <p
-          style={{
-            marginTop: '20px',
-            textAlign: 'center',
-            fontSize: '11px',
-            color: 'var(--text-muted)',
-            lineHeight: '1.5',
-          }}
-        >
-          By signing up you agree to our{' '}
-          <span style={{ color: 'var(--omnexia-accent)', cursor: 'pointer' }}>Terms of Service</span>
-          {' '}and{' '}
-          <span style={{ color: 'var(--omnexia-accent)', cursor: 'pointer' }}>Privacy Policy</span>
-        </p>
+        {!isInvite && (
+          <p
+            style={{
+              marginTop: '20px',
+              textAlign: 'center',
+              fontSize: '11px',
+              color: 'var(--text-muted)',
+              lineHeight: '1.5',
+            }}
+          >
+            By signing up you agree to our{' '}
+            <span style={{ color: 'var(--omnexia-accent)', cursor: 'pointer' }}>Terms of Service</span>
+            {' '}and{' '}
+            <span style={{ color: 'var(--omnexia-accent)', cursor: 'pointer' }}>Privacy Policy</span>
+          </p>
+        )}
 
         <p style={{ marginTop: '16px', textAlign: 'center', fontSize: '13px', color: 'var(--text-muted)' }}>
           Already have an account?{' '}

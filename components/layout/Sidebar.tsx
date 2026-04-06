@@ -4,30 +4,29 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import {
-  LayoutDashboard,
   Inbox,
   Receipt,
   Calendar,
   Users,
-  Settings,
   ChevronDown,
 } from 'lucide-react'
+import { useDashboard } from './DashboardContext'
 import type { User, Business } from '@/types/database'
 
 interface NavItem {
   href: string
   labelKey: string
   icon: React.ElementType
+  moduleKey?: keyof User['module_access'] // undefined = always visible to admins
   badge?: number
 }
 
-const navItems: NavItem[] = [
-  { href: '/overview', labelKey: 'overview', icon: LayoutDashboard },
-  { href: '/communications', labelKey: 'communications', icon: Inbox },
-  { href: '/finance', labelKey: 'finance', icon: Receipt },
-  { href: '/planning', labelKey: 'planning', icon: Calendar },
-  { href: '/team', labelKey: 'team', icon: Users },
-  { href: '/settings', labelKey: 'settings', icon: Settings },
+// All possible nav items — overview and settings are admin-only (no moduleKey guard, excluded for employees)
+const ALL_NAV_ITEMS: NavItem[] = [
+  { href: '/communications', labelKey: 'communications', icon: Inbox, moduleKey: 'communications' },
+  { href: '/finance', labelKey: 'finance', icon: Receipt, moduleKey: 'finance' },
+  { href: '/planning', labelKey: 'planning', icon: Calendar, moduleKey: 'planning' },
+  { href: '/team', labelKey: 'team', icon: Users, moduleKey: 'team' },
 ]
 
 function getInitials(name: string | null) {
@@ -45,9 +44,19 @@ interface SidebarProps {
   business: Business
 }
 
-export function Sidebar({ user, business }: SidebarProps) {
+export function Sidebar({ user: _user, business: _business }: SidebarProps) {
   const pathname = usePathname()
   const t = useTranslations('nav')
+  // Use context user for real-time updates to role/module_access
+  const { user, business } = useDashboard()
+
+  const isAdmin = user.role === 'admin'
+
+  const visibleItems = ALL_NAV_ITEMS.filter((item) => {
+    if (!item.moduleKey) return isAdmin
+    // Employees only see modules explicitly granted to them
+    return user.module_access?.[item.moduleKey] === true
+  })
 
   const isActive = (href: string) => {
     const segment = pathname.split('/').filter(Boolean)[0]
@@ -198,7 +207,7 @@ export function Sidebar({ user, business }: SidebarProps) {
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto" style={{ padding: '12px' }}>
           <ul className="flex flex-col gap-0.5" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-            {navItems.map((item) => {
+            {visibleItems.map((item) => {
               const active = isActive(item.href)
               const Icon = item.icon
               return (
