@@ -4,10 +4,12 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import {
+  LayoutDashboard,
   Inbox,
   Receipt,
   Calendar,
   Users,
+  Settings,
   ChevronDown,
 } from 'lucide-react'
 import { useDashboard } from './DashboardContext'
@@ -21,12 +23,16 @@ interface NavItem {
   badge?: number
 }
 
-// All possible nav items — overview and settings are admin-only (no moduleKey guard, excluded for employees)
+// All possible nav items.
+// Items WITHOUT moduleKey = admin-only (Overview, Settings).
+// Items WITH moduleKey = shown to employees only if module_access[key] === true.
 const ALL_NAV_ITEMS: NavItem[] = [
+  { href: '/overview', labelKey: 'overview', icon: LayoutDashboard },
   { href: '/communications', labelKey: 'communications', icon: Inbox, moduleKey: 'communications' },
   { href: '/finance', labelKey: 'finance', icon: Receipt, moduleKey: 'finance' },
   { href: '/planning', labelKey: 'planning', icon: Calendar, moduleKey: 'planning' },
   { href: '/team', labelKey: 'team', icon: Users, moduleKey: 'team' },
+  { href: '/settings', labelKey: 'settings', icon: Settings },
 ]
 
 function getInitials(name: string | null) {
