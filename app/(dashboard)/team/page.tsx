@@ -41,14 +41,22 @@ export default function TeamPage() {
     if (!userRow?.business_id) return
     setBusinessId(userRow.business_id)
 
-    const [empRes, usersRes, logsRes] = await Promise.all([
+    const [empRes, logsRes] = await Promise.all([
       supabase.from('employees').select('id, full_name, email, role_title, user_id').eq('business_id', userRow.business_id),
-      supabase.from('users').select('id, role, status, module_access').eq('business_id', userRow.business_id),
       supabase.from('activity_logs').select('*').eq('business_id', userRow.business_id).order('created_at', { ascending: false }).limit(200),
     ])
 
     if (empRes.data) setEmployees(empRes.data)
-    if (usersRes.data) setUsers(usersRes.data)
+
+    // Fetch users by ID rather than business_id — invited employees may not
+    // have business_id set on their users row yet (pre-onboarding), so a
+    // business_id filter would silently exclude them and status would always
+    // show as "active".
+    const userIds = (empRes.data ?? []).map(e => e.user_id).filter(Boolean) as string[]
+    if (userIds.length > 0) {
+      const { data: usersRes } = await supabase.from('users').select('id, role, status, module_access').in('id', userIds)
+      if (usersRes) setUsers(usersRes)
+    }
     if (logsRes.data) setActivityLogs(logsRes.data)
     setLoading(false)
   }, [supabase])
@@ -65,8 +73,14 @@ export default function TeamPage() {
         if (payload.eventType === 'UPDATE') setEmployees(prev => prev.map(e => e.id === payload.new.id ? payload.new as Employee : e))
         if (payload.eventType === 'DELETE') setEmployees(prev => prev.filter(e => e.id !== payload.old.id))
       })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users', filter: `business_id=eq.${businessId}` }, payload => {
-        setUsers(prev => prev.map(u => u.id === payload.new.id ? payload.new as User : u))
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users' }, payload => {
+        // No business_id filter — invited users may not have business_id set yet.
+        // Only apply if the updated user is already in our local users list.
+        setUsers(prev => {
+          const exists = prev.some(u => u.id === payload.new.id)
+          if (!exists) return prev
+          return prev.map(u => u.id === payload.new.id ? payload.new as User : u)
+        })
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity_logs', filter: `business_id=eq.${businessId}` }, payload => {
         setActivityLogs(prev => [payload.new as ActivityEntry, ...prev])
