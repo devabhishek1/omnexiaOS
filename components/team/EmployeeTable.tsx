@@ -11,6 +11,7 @@ interface Employee {
   email: string
   role_title: string | null
   user_id: string | null
+  status: string
 }
 
 interface User {
@@ -36,10 +37,11 @@ const roleColors: Record<string, { bg: string; color: string }> = {
   accountant: { bg: '#FEF3C7', color: '#B45309' },
 }
 
-const statusColors: Record<string, { bg: string; color: string }> = {
-  active: { bg: '#DCFCE7', color: '#15803D' },
-  on_leave: { bg: '#FEF3C7', color: '#B45309' },
-  deactivated: { bg: '#F3F4F6', color: '#6B7280' },
+const statusColors: Record<string, { bg: string; color: string; label: string }> = {
+  invited:     { bg: '#DBEAFE', color: '#1D4ED8', label: 'Invited' },
+  active:      { bg: '#DCFCE7', color: '#15803D', label: 'Active' },
+  on_leave:    { bg: '#FEF3C7', color: '#B45309', label: 'On Leave' },
+  deactivated: { bg: '#FEE2E2', color: '#DC2626', label: 'Inactive' },
 }
 
 function initials(name: string) {
@@ -54,6 +56,11 @@ export default function EmployeeTable({ employees, users, currentUserId, onEditP
 
   function getUserForEmployee(emp: Employee): User | null {
     return users.find(u => u.id === emp.user_id) ?? null
+  }
+
+  function closeMenu() {
+    setOpenMenuId(null)
+    setMenuPos(null)
   }
 
   if (employees.length === 0) {
@@ -77,24 +84,27 @@ export default function EmployeeTable({ employees, users, currentUserId, onEditP
         <tbody>
           {employees.map((emp, i) => {
             const user = getUserForEmployee(emp)
-            const role = user?.role ?? 'employee'
-            const status = user?.status ?? 'active'
+            const role = user?.role ?? (emp.role_title ?? 'employee')
+            // Status comes from employees.status — single source of truth
+            const status = emp.status ?? 'invited'
             const rc = roleColors[role] ?? roleColors.employee
             const sc = statusColors[status] ?? statusColors.active
             const isMe = emp.user_id === currentUserId
+            const isInvited = status === 'invited'
+            const isDeactivated = status === 'deactivated'
 
             return (
               <tr
                 key={emp.id}
                 style={{
                   borderBottom: i < employees.length - 1 ? '1px solid var(--border)' : 'none',
-                  opacity: status === 'deactivated' ? 0.5 : 1,
+                  opacity: isDeactivated ? 0.55 : 1,
                 }}
               >
                 {/* Name + email */}
                 <td style={{ padding: '14px 16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: 'var(--omnexia-accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, color: 'var(--omnexia-accent)', flexShrink: 0 }}>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: isInvited ? '#DBEAFE' : 'var(--omnexia-accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, color: isInvited ? '#1D4ED8' : 'var(--omnexia-accent)', flexShrink: 0 }}>
                       {initials(emp.full_name)}
                     </div>
                     <div>
@@ -112,17 +122,17 @@ export default function EmployeeTable({ employees, users, currentUserId, onEditP
                   {emp.role_title ?? '—'}
                 </td>
 
-                {/* Access level */}
+                {/* Access level / permissions badge */}
                 <td style={{ padding: '14px 16px' }}>
                   <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: '20px', backgroundColor: rc.bg, color: rc.color, textTransform: 'capitalize' }}>
                     {role}
                   </span>
                 </td>
 
-                {/* Status */}
+                {/* Status — read from employees.status */}
                 <td style={{ padding: '14px 16px' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: '20px', backgroundColor: sc.bg, color: sc.color, textTransform: 'capitalize' }}>
-                    {status === 'on_leave' ? 'On Leave' : status.charAt(0).toUpperCase() + status.slice(1)}
+                  <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: '20px', backgroundColor: sc.bg, color: sc.color }}>
+                    {t(`status_${status}`) ?? sc.label}
                   </span>
                 </td>
 
@@ -138,8 +148,7 @@ export default function EmployeeTable({ employees, users, currentUserId, onEditP
                     <button
                       onClick={(e) => {
                         if (openMenuId === emp.id) {
-                          setOpenMenuId(null)
-                          setMenuPos(null)
+                          closeMenu()
                         } else {
                           const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
                           setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right })
@@ -153,17 +162,19 @@ export default function EmployeeTable({ employees, users, currentUserId, onEditP
 
                     {openMenuId === emp.id && menuPos && (
                       <>
-                        <div style={{ position: 'fixed', inset: 0, zIndex: 49 }} onClick={() => { setOpenMenuId(null); setMenuPos(null) }} />
+                        <div style={{ position: 'fixed', inset: 0, zIndex: 49 }} onClick={closeMenu} />
                         <div style={{ position: 'fixed', top: menuPos.top, right: menuPos.right, backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '8px', boxShadow: '0 4px 16px rgba(0,0,0,0.1)', zIndex: 50, minWidth: '160px' }}>
-                          <button
-                            onClick={() => { onEditPermissions(emp, user); setOpenMenuId(null); setMenuPos(null) }}
-                            style={{ display: 'block', width: '100%', padding: '10px 14px', background: 'none', border: 'none', textAlign: 'left', fontSize: '13px', cursor: 'pointer', color: 'var(--text-secondary)' }}
-                          >
-                            {t('editPermissions')}
-                          </button>
-                          {status !== 'deactivated' && (
+                          {!isInvited && (
                             <button
-                              onClick={() => { onDeactivate(emp); setOpenMenuId(null); setMenuPos(null) }}
+                              onClick={() => { onEditPermissions(emp, user); closeMenu() }}
+                              style={{ display: 'block', width: '100%', padding: '10px 14px', background: 'none', border: 'none', textAlign: 'left', fontSize: '13px', cursor: 'pointer', color: 'var(--text-secondary)' }}
+                            >
+                              {t('editPermissions')}
+                            </button>
+                          )}
+                          {!isDeactivated && !isInvited && (
+                            <button
+                              onClick={() => { onDeactivate(emp); closeMenu() }}
                               style={{ display: 'block', width: '100%', padding: '10px 14px', background: 'none', border: 'none', textAlign: 'left', fontSize: '13px', cursor: 'pointer', color: '#DC2626' }}
                             >
                               {t('deactivate')}
@@ -171,8 +182,8 @@ export default function EmployeeTable({ employees, users, currentUserId, onEditP
                           )}
                           {!isMe && (
                             <button
-                              onClick={() => { onRemove(emp); setOpenMenuId(null); setMenuPos(null) }}
-                              style={{ display: 'block', width: '100%', padding: '10px 14px', background: 'none', border: 'none', textAlign: 'left', fontSize: '13px', cursor: 'pointer', color: '#DC2626', borderTop: '1px solid var(--border)' }}
+                              onClick={() => { onRemove(emp); closeMenu() }}
+                              style={{ display: 'block', width: '100%', padding: '10px 14px', background: 'none', border: 'none', textAlign: 'left', fontSize: '13px', cursor: 'pointer', color: '#DC2626', borderTop: (!isInvited && !isDeactivated) ? '1px solid var(--border)' : 'none' }}
                             >
                               {t('removeFromTeam')}
                             </button>

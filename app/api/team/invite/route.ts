@@ -38,6 +38,7 @@ export async function POST(request: Request) {
       email,
       role_title: role,
       user_id: null,
+      status: 'invited',
     })
     .select()
     .single()
