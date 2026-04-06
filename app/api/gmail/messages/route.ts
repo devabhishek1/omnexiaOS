@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { decrypt, isEncrypted } from '@/lib/utils/crypto'
 import { stripQuotedReply } from '@/lib/gmail/parse'
+import { getBusinessGmailEmail } from '@/lib/gmail/client'
 
 function safeDecrypt(value: string | null | undefined): string {
   if (!value) return ''
@@ -43,13 +44,12 @@ export async function GET(request: Request) {
 
   const admin = createAdminClient()
 
-  // Get user's Gmail address so we can correct direction for historically mis-classified messages
-  const { data: tokenRow } = await admin
-    .from('gmail_tokens')
-    .select('email')
-    .eq('user_id', user.id)
-    .single()
-  const gmailEmail = (tokenRow?.email ?? '').toLowerCase()
+  // Get the business's connected Gmail address for direction correction.
+  // Employees have no personal Gmail token — always look up via business_id.
+  const { data: userRow } = await admin.from('users').select('business_id').eq('id', user.id).single()
+  const gmailEmail = userRow?.business_id
+    ? await getBusinessGmailEmail(userRow.business_id)
+    : ''
 
   const { data: messages, error } = await admin
     .from('messages')
