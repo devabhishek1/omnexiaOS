@@ -83,7 +83,8 @@
     "todayAdded": "+{count} aujourd'hui",
     "alertView": "Voir",
     "alertDismiss": "Rejeter",
-    "invoiceOverdueAlert": "Facture #{name} — €{amount} est en retard de {days} jours."
+    "invoiceOverdueAlert": "Facture #{name} — €{amount} est en retard de {days} jours.",
+    "statusOff": "Absent"
   },
   "communications": {
     "title": "Communications",
@@ -204,7 +205,10 @@
     "amountEur": "Montant (€)",
     "receipt": "Reçu",
     "uploadReceipt": "Télécharger",
-    "uploadingReceipt": "Téléchargement…"
+    "uploadingReceipt": "Téléchargement…",
+    "pennylaneConnect": "Connecter Pennylane",
+    "pennylaneConnected": "Pennylane connecté",
+    "followUpGenerating": "Génération de l'e-mail..."
   },
   "planning": {
     "title": "Planification",

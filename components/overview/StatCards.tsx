@@ -1,43 +1,124 @@
-import { useTranslations } from 'next-intl'
+'use client'
 
-interface StatCard {
-  labelKey: string
-  value: string
-  deltaKey: string
-  deltaCount: number
-  accentColor: string
+import { useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
+import { createClient } from '@/lib/supabase/client'
+import { useDashboard } from '@/components/layout/DashboardContext'
+
+interface Stats {
+  unreadConversations: number
+  newConversationsToday: number
+  pendingTotal: number
+  pendingCount: number
+  totalEmployees: number
+  onLeaveToday: number
+  shiftsToday: number
+}
+
+function formatEuro(val: number): string {
+  if (val >= 1000) {
+    const k = val / 1000
+    return `€${k % 1 === 0 ? k.toFixed(0) : k.toFixed(1)}k`
+  }
+  return `€${val}`
 }
 
 export function StatCards() {
   const t = useTranslations('overview')
+  const [stats, setStats] = useState<Stats | null>(null)
+  const { user } = useDashboard()
+  const businessId = user.active_business_id ?? user.business_id
 
-  const stats: StatCard[] = [
+  useEffect(() => {
+    async function load() {
+      const supabase = createClient()
+      const today = new Date().toISOString().split('T')[0]
+      const startOfToday = new Date()
+      startOfToday.setHours(0, 0, 0, 0)
+
+      const [unreadRes, newConvRes, invRes, empRes, leaveRes, shiftRes] = await Promise.all([
+        // Unread conversations
+        supabase
+          .from('conversations')
+          .select('id', { count: 'exact', head: true })
+          .eq('business_id', businessId)
+          .eq('status', 'unread'),
+        // New conversations today
+        supabase
+          .from('conversations')
+          .select('id', { count: 'exact', head: true })
+          .eq('business_id', businessId)
+          .gte('last_message_at', startOfToday.toISOString()),
+        // Pending/unpaid invoices
+        supabase
+          .from('invoices')
+          .select('total')
+          .eq('business_id', businessId)
+          .in('status', ['unpaid', 'sent']),
+        // Active employees only (excludes invited + deactivated)
+        supabase
+          .from('employees')
+          .select('id', { count: 'exact', head: true })
+          .eq('business_id', businessId)
+          .eq('status', 'active'),
+        // On leave today (approved time-off covering today)
+        supabase
+          .from('time_off_requests')
+          .select('id', { count: 'exact', head: true })
+          .eq('business_id', businessId)
+          .eq('status', 'approved')
+          .lte('start_date', today)
+          .gte('end_date', today),
+        // Shifts today
+        supabase
+          .from('shifts')
+          .select('id', { count: 'exact', head: true })
+          .eq('business_id', businessId)
+          .eq('date', today),
+      ])
+
+      const pendingTotal = (invRes.data ?? []).reduce((sum, inv) => sum + (inv.total ?? 0), 0)
+
+      setStats({
+        unreadConversations: unreadRes.count ?? 0,
+        newConversationsToday: newConvRes.count ?? 0,
+        pendingTotal,
+        pendingCount: invRes.data?.length ?? 0,
+        totalEmployees: empRes.count ?? 0,
+        onLeaveToday: leaveRes.count ?? 0,
+        shiftsToday: shiftRes.count ?? 0,
+      })
+    }
+    load()
+  }, [businessId])
+
+  const cards = [
     {
       labelKey: 'unreadMessages',
-      value: '24',
-      deltaKey: 'todayAdded',
-      deltaCount: 3,
+      value: stats ? String(stats.unreadConversations) : '—',
+      deltaKey: 'todayAdded' as const,
+      deltaCount: stats?.newConversationsToday ?? 0,
       accentColor: 'var(--omnexia-accent)',
     },
     {
       labelKey: 'pendingInvoices',
-      value: '€8,420',
-      deltaKey: 'todayAdded',
-      deltaCount: 3,
+      value: stats ? formatEuro(stats.pendingTotal) : '—',
+      deltaKey: 'todayAdded' as const,
+      deltaCount: stats?.pendingCount ?? 0,
       accentColor: 'var(--amber)',
     },
     {
       labelKey: 'activeEmployees',
-      value: '12',
-      deltaKey: 'onLeave',
-      deltaCount: 2,
+      value: stats ? String(stats.totalEmployees) : '—',
+      deltaKey: 'onLeave' as const,
+      deltaCount: stats?.onLeaveToday ?? 0,
       accentColor: 'var(--green)',
     },
     {
       labelKey: 'todaysTasks',
-      value: '7',
-      deltaKey: 'todayUrgent',
-      deltaCount: 3,
+      value: stats ? String(stats.shiftsToday) : '—',
+      deltaKey: 'todayUrgent' as const,
+      deltaCount: 0,
       accentColor: 'var(--red)',
     },
   ]
@@ -50,7 +131,7 @@ export function StatCards() {
         gap: '16px',
       }}
     >
-      {stats.map((stat) => (
+      {cards.map((stat) => (
         <div
           key={stat.labelKey}
           style={{

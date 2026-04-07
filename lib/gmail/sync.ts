@@ -51,6 +51,26 @@ export async function upsertMessage(
   }
 
   // ── Upsert conversation (keyed on business_id + threadId) ─────────────────
+  // Check if this conversation already exists and has been marked 'read' inside
+  // the app. If Gmail still says 'unread' (e.g. user read it in our app but not
+  // in the Gmail client), we must NOT revert it to 'unread' — that would undo the
+  // user's in-app read action and cause the persistent unread bug.
+  const { data: existingConv } = await admin
+    .from('conversations')
+    .select('id, status')
+    .eq('business_id', businessId)
+    .eq('external_id', parsed.threadId)
+    .maybeSingle()
+
+  // Safe status: only mark 'unread' if the app hasn't already marked it 'read'.
+  // If Gmail says 'read' (user read on another device), always honour it.
+  const safeStatus =
+    !parsed.isUnread
+      ? 'read'                                          // Gmail says read → always read
+      : existingConv?.status === 'read'
+        ? 'read'                                        // App already marked read → keep read
+        : 'unread'                                      // Genuinely unread in both places
+
   const { data: conversation, error: convError } = await admin
     .from('conversations')
     .upsert(
@@ -61,7 +81,7 @@ export async function upsertMessage(
         participant_email: encrypt(participantEmail),
         participant_name: encrypt(participantName),
         subject: encrypt(parsed.subject),
-        status: parsed.isUnread ? 'unread' : 'read',
+        status: safeStatus,
         last_message_at: parsed.date
           ? new Date(parsed.date).toISOString()
           : new Date().toISOString(),

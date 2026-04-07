@@ -404,6 +404,7 @@ CREATE TABLE public.ai_digests (
   business_id   uuid NULL,
   date          date NOT NULL,
   content       text NOT NULL,
+  locale        text NULL DEFAULT 'en',
   message_count int NULL DEFAULT 0,
   urgent_count  int NULL DEFAULT 0,
   generated_at  timestamptz NULL DEFAULT now(),

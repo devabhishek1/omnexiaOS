@@ -1,84 +1,107 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useTranslations } from 'next-intl'
+import { useEffect, useState, useRef } from 'react'
+import { useTranslations, useLocale } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { AIBadge } from '@/components/layout/AIBadge'
+import { useDashboard } from '@/components/layout/DashboardContext'
 
 export function DigestCard() {
   const t = useTranslations('overview')
+  const locale = useLocale()
   const supabase = createClient()
+  const { user } = useDashboard()
+  const businessId = user.active_business_id ?? user.business_id
+
   const [content, setContent] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [regenerating, setRegenerating] = useState(false)
+
+  // Track the locale that the stored digest was generated in
+  const digestLocaleRef = useRef<string | null>(null)
 
   const today = new Date().toLocaleDateString('en-GB', {
     day: 'numeric', month: 'long', year: 'numeric',
   })
 
-  useEffect(() => {
-    let channel: ReturnType<typeof supabase.channel> | null = null
-
-    async function init() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { setLoading(false); return }
-      const { data: userRow } = await supabase.from('users').select('business_id').eq('id', user.id).single()
-      if (!userRow?.business_id) { setLoading(false); return }
-      const businessId = userRow.business_id
-      await loadDigest()
-
-      // Subscribe to digest updates (e.g. triggered by language change in Settings)
-      channel = supabase
-        .channel('digest-realtime')
-        .on('postgres_changes', {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'ai_digests',
-          filter: `business_id=eq.${businessId}`,
-        }, (payload) => {
-          setContent((payload.new as { content: string }).content)
-        })
-        .on('postgres_changes', {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'ai_digests',
-          filter: `business_id=eq.${businessId}`,
-        }, (payload) => {
-          setContent((payload.new as { content: string }).content)
-        })
-        .subscribe()
-    }
-
-    init()
-    return () => { if (channel) supabase.removeChannel(channel) }
-  }, [])
+  const todayStr = new Date().toISOString().split('T')[0]
 
   async function loadDigest() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setLoading(false); return }
-
-    const { data: userRow } = await supabase.from('users').select('business_id').eq('id', user.id).single()
-    if (!userRow?.business_id) { setLoading(false); return }
-
-    const todayStr = new Date().toISOString().split('T')[0]
     const { data } = await supabase
       .from('ai_digests')
-      .select('content')
-      .eq('business_id', userRow.business_id)
+      .select('content, locale')
+      .eq('business_id', businessId)
       .eq('date', todayStr)
       .maybeSingle()
 
-    setContent(data?.content ?? null)
+    if (data?.content) {
+      setContent(data.content)
+      digestLocaleRef.current = (data as { content: string; locale?: string | null }).locale ?? locale
+    } else {
+      setContent(null)
+      digestLocaleRef.current = null
+    }
     setLoading(false)
   }
 
-  async function handleRegenerate() {
+  async function handleRegenerate(forceLocale?: string) {
     setRegenerating(true)
-    const res = await fetch('/api/mistral/digest', { method: 'POST' })
+    const res = await fetch('/api/mistral/digest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ locale: forceLocale ?? locale }),
+    })
     const data = await res.json()
-    if (data.content) setContent(data.content)
+    if (data.content) {
+      setContent(data.content)
+      digestLocaleRef.current = forceLocale ?? locale
+    }
     setRegenerating(false)
   }
+
+  // Initial load
+  useEffect(() => {
+    loadDigest()
+  }, [businessId])
+
+  // Realtime: update when digest is regenerated (e.g. from cron or another tab)
+  useEffect(() => {
+    const channel = supabase
+      .channel(`digest:${businessId}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'ai_digests',
+        filter: `business_id=eq.${businessId}`,
+      }, (payload) => {
+        setContent((payload.new as { content: string }).content)
+        digestLocaleRef.current = (payload.new as { content: string; locale?: string }).locale ?? locale
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'ai_digests',
+        filter: `business_id=eq.${businessId}`,
+      }, (payload) => {
+        setContent((payload.new as { content: string }).content)
+        digestLocaleRef.current = (payload.new as { content: string; locale?: string }).locale ?? locale
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [businessId])
+
+  // Auto-regenerate when the UI language changes and a digest already exists
+  // (or was just generated) but in a different language
+  const prevLocaleRef = useRef(locale)
+  useEffect(() => {
+    if (prevLocaleRef.current === locale) return
+    prevLocaleRef.current = locale
+
+    // Only auto-regenerate if we already have a digest (don't spam on first load)
+    if (content !== null && digestLocaleRef.current !== locale) {
+      handleRegenerate(locale)
+    }
+  }, [locale])
 
   return (
     <div style={{ background: 'var(--dark-card)', borderRadius: '12px', padding: '24px', marginBottom: '0' }}>
@@ -91,9 +114,19 @@ export function DigestCard() {
           <AIBadge />
         </div>
         <button
-          onClick={handleRegenerate}
+          onClick={() => handleRegenerate()}
           disabled={regenerating}
-          style={{ background: 'var(--dark-card-surface)', border: '1px solid #3A3A3A', borderRadius: '8px', padding: '6px 14px', color: regenerating ? '#555' : 'var(--dark-card-muted)', fontSize: '12px', fontWeight: 500, cursor: regenerating ? 'not-allowed' : 'pointer', transition: 'color 0.15s' }}
+          style={{
+            background: 'var(--dark-card-surface)',
+            border: '1px solid #3A3A3A',
+            borderRadius: '8px',
+            padding: '6px 14px',
+            color: regenerating ? '#555' : 'var(--dark-card-muted)',
+            fontSize: '12px',
+            fontWeight: 500,
+            cursor: regenerating ? 'not-allowed' : 'pointer',
+            transition: 'color 0.15s',
+          }}
           onMouseEnter={(e) => { if (!regenerating) e.currentTarget.style.color = 'var(--dark-card-text)' }}
           onMouseLeave={(e) => { if (!regenerating) e.currentTarget.style.color = 'var(--dark-card-muted)' }}
         >
@@ -110,7 +143,10 @@ export function DigestCard() {
         ) : (
           <span style={{ color: '#666', fontSize: '13px' }}>
             {t('digestNoContent')}{' '}
-            <button onClick={handleRegenerate} style={{ background: 'none', border: 'none', color: '#6366F1', cursor: 'pointer', fontSize: '13px', padding: 0, textDecoration: 'underline' }}>
+            <button
+              onClick={() => handleRegenerate()}
+              style={{ background: 'none', border: 'none', color: '#6366F1', cursor: 'pointer', fontSize: '13px', padding: 0, textDecoration: 'underline' }}
+            >
               {t('digestGenerate')}
             </button>
           </span>

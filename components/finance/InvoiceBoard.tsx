@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
+import { ComposeModal } from '@/components/communications/ComposeModal'
 import {
   DndContext,
   DragEndEvent,
@@ -149,12 +150,19 @@ function StatusDropdown({
 }
 
 // ---------------------------------------------------------------------------
-// Follow-up button — generates AI email via Mistral then redirects to compose
+// Follow-up button — generates AI email via Mistral, then opens compose inline
 // ---------------------------------------------------------------------------
 
-function FollowUpButton({ invoice }: { invoice: Invoice }) {
+function FollowUpButton({
+  invoice,
+  onGenerated,
+}: {
+  invoice: Invoice
+  onGenerated: (to: string, subject: string, body: string) => void
+}) {
   const [generating, setGenerating] = useState(false)
   const t = useTranslations('finance')
+  const locale = useLocale()
 
   async function handleFollowUp(e: React.MouseEvent) {
     e.stopPropagation()
@@ -163,19 +171,16 @@ function FollowUpButton({ invoice }: { invoice: Invoice }) {
       const res = await fetch('/api/mistral/followup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ invoiceId: invoice.id }),
+        body: JSON.stringify({ invoiceId: invoice.id, locale }),
       })
-      const { subject, body } = await res.json()
-      const params = new URLSearchParams({
-        compose: 'true',
-        subject: subject ?? '',
-        body: body ?? '',
-        client: invoice.client_name,
-      })
-      window.location.href = `/communications?${params.toString()}`
+      const data = await res.json()
+      // Use client_email from invoice record (returned by API) or fall back to
+      // the email already in the invoice object on the frontend
+      const to = data.clientEmail || invoice.client_email || ''
+      onGenerated(to, data.subject ?? '', data.body ?? '')
     } catch {
-      // Fallback — open compose without AI content
-      window.location.href = `/communications?compose=true&client=${encodeURIComponent(invoice.client_name)}`
+      // Fallback: open compose with To pre-filled but no AI body
+      onGenerated(invoice.client_email || '', '', '')
     } finally {
       setGenerating(false)
     }
@@ -186,9 +191,25 @@ function FollowUpButton({ invoice }: { invoice: Invoice }) {
       onClick={handleFollowUp}
       disabled={generating}
       onMouseDown={e => e.stopPropagation()}
-      style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 600, color: generating ? '#aaa' : '#DC2626', padding: '3px 8px', border: '1px solid #FECACA', borderRadius: '6px', backgroundColor: '#FEF2F2', cursor: generating ? 'not-allowed' : 'pointer', background: 'none', fontFamily: 'var(--font-dm-sans), sans-serif' }}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '4px',
+        fontSize: '11px',
+        fontWeight: 600,
+        color: generating ? '#aaa' : '#DC2626',
+        padding: '3px 8px',
+        border: `1px solid ${generating ? '#E5E7EB' : '#FECACA'}`,
+        borderRadius: '6px',
+        backgroundColor: generating ? 'var(--bg-elevated)' : '#FEF2F2',
+        cursor: generating ? 'not-allowed' : 'pointer',
+        fontFamily: 'var(--font-dm-sans), sans-serif',
+        transition: 'all 0.15s',
+      }}
     >
-      {generating ? `✦ ${t('followUpAI')}` : <><ExternalLink size={10} /> {t('followUp')}</>}
+      {generating
+        ? <>✦ {t('followUpGenerating')}</>
+        : <><ExternalLink size={10} /> {t('followUp')}</>}
     </button>
   )
 }
@@ -202,11 +223,13 @@ function InvoiceCard({
   isDragging,
   onStatusChange,
   onEdit,
+  onFollowUp,
 }: {
   invoice: Invoice
   isDragging?: boolean
   onStatusChange: (id: string, status: string) => void
   onEdit: (invoice: Invoice) => void
+  onFollowUp: (to: string, subject: string, body: string) => void
 }) {
   const tf = useTranslations('finance')
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
@@ -274,7 +297,7 @@ function InvoiceCard({
       {/* Bottom row: follow-up button + status dropdown */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '8px' }}>
         {invoice.status === 'overdue' ? (
-          <FollowUpButton invoice={invoice} />
+          <FollowUpButton invoice={invoice} onGenerated={onFollowUp} />
         ) : <span />}
         <StatusDropdown invoice={invoice} onStatusChange={onStatusChange} />
       </div>
@@ -287,11 +310,12 @@ function InvoiceCard({
 // ---------------------------------------------------------------------------
 
 function Column({
-  colKey, label, color, invoices, onStatusChange, onEdit,
+  colKey, label, color, invoices, onStatusChange, onEdit, onFollowUp,
 }: {
   colKey: string; label: string; color: string; invoices: Invoice[]
   onStatusChange: (id: string, status: string) => void
   onEdit: (invoice: Invoice) => void
+  onFollowUp: (to: string, subject: string, body: string) => void
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: colKey })
   const t = useTranslations('finance')
@@ -321,7 +345,7 @@ function Column({
           <p style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0', margin: 0 }}>{t('noInvoices')}</p>
         ) : (
           invoices.map(inv => (
-            <InvoiceCard key={inv.id} invoice={inv} onStatusChange={onStatusChange} onEdit={onEdit} />
+            <InvoiceCard key={inv.id} invoice={inv} onStatusChange={onStatusChange} onEdit={onEdit} onFollowUp={onFollowUp} />
           ))
         )}
       </div>
@@ -339,6 +363,19 @@ export default function InvoiceBoard({ invoices, countryCode, businessVatRate, s
   const [modalOpen, setModalOpen] = useState(false)
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
+
+  // Follow-up compose state — opened when AI generates the email
+  const [composeOpen, setComposeOpen] = useState(false)
+  const [composeTo, setComposeTo] = useState('')
+  const [composeSubject, setComposeSubject] = useState('')
+  const [composeBody, setComposeBody] = useState('')
+
+  function handleFollowUp(to: string, subject: string, body: string) {
+    setComposeTo(to)
+    setComposeSubject(subject)
+    setComposeBody(body)
+    setComposeOpen(true)
+  }
 
   // CSV import state
   const csvFileRef = useRef<HTMLInputElement>(null)
@@ -488,11 +525,12 @@ export default function InvoiceBoard({ invoices, countryCode, businessVatRate, s
               invoices={filtered.filter(inv => inv.status === col.key)}
               onStatusChange={applyStatusChange}
               onEdit={setEditingInvoice}
+              onFollowUp={handleFollowUp}
             />
           ))}
         </div>
         <DragOverlay dropAnimation={{ duration: 150, easing: 'ease' }}>
-          {activeInvoice ? <InvoiceCard invoice={activeInvoice} isDragging onStatusChange={() => {}} onEdit={() => {}} /> : null}
+          {activeInvoice ? <InvoiceCard invoice={activeInvoice} isDragging onStatusChange={() => {}} onEdit={() => {}} onFollowUp={() => {}} /> : null}
         </DragOverlay>
       </DndContext>
 
@@ -504,6 +542,17 @@ export default function InvoiceBoard({ invoices, countryCode, businessVatRate, s
         countryCode={countryCode}
         businessVatRate={businessVatRate}
       />
+
+      {/* Follow-up compose modal — AI pre-fills To, Subject, Body */}
+      {composeOpen && (
+        <ComposeModal
+          onClose={() => setComposeOpen(false)}
+          onSent={() => setComposeOpen(false)}
+          initialTo={composeTo}
+          initialSubject={composeSubject}
+          initialBody={composeBody}
+        />
+      )}
 
       {/* Edit modal */}
       {editingInvoice && (

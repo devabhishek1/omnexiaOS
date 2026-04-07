@@ -1,35 +1,58 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { AlertTriangle, X } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import { useDashboard } from '@/components/layout/DashboardContext'
 
 interface Alert {
   id: string
-  type: 'invoice_overdue' | 'urgent_message' | 'shift_conflict'
-  name?: string
-  amount?: string
-  days?: number
+  type: 'invoice_overdue'
+  name: string
+  amount: string
+  days: number
   href: string
 }
 
-const MOCK_ALERTS: Alert[] = [
-  {
-    id: '1',
-    type: 'invoice_overdue',
-    name: 'TechParis',
-    amount: '4,220',
-    days: 9,
-    href: '/finance',
-  },
-]
-
 export function AlertStrip() {
   const [dismissed, setDismissed] = useState<Set<string>>(new Set())
+  const [alerts, setAlerts] = useState<Alert[]>([])
   const t = useTranslations('overview')
+  const { user } = useDashboard()
+  const businessId = user.active_business_id ?? user.business_id
 
-  const visible = MOCK_ALERTS.filter((a) => !dismissed.has(a.id))
+  useEffect(() => {
+    async function load() {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('invoices')
+        .select('id, client_name, total, due_date')
+        .eq('business_id', businessId)
+        .eq('status', 'overdue')
+        .order('due_date', { ascending: true })
 
+      if (!data) return
+
+      const today = new Date()
+      const parsed: Alert[] = data.map((inv) => {
+        const due = new Date(inv.due_date)
+        const days = Math.max(1, Math.floor((today.getTime() - due.getTime()) / (1000 * 60 * 60 * 24)))
+        return {
+          id: inv.id,
+          type: 'invoice_overdue',
+          name: inv.client_name,
+          amount: inv.total.toLocaleString('en-EU', { maximumFractionDigits: 0 }),
+          days,
+          href: '/finance',
+        }
+      })
+      setAlerts(parsed)
+    }
+    load()
+  }, [businessId])
+
+  const visible = alerts.filter((a) => !dismissed.has(a.id))
   if (visible.length === 0) return null
 
   return (
@@ -57,9 +80,7 @@ export function AlertStrip() {
               fontWeight: 500,
             }}
           >
-            {alert.type === 'invoice_overdue'
-              ? t('invoiceOverdueAlert', { name: alert.name ?? '', amount: alert.amount ?? '', days: alert.days ?? 0 })
-              : ''}
+            {t('invoiceOverdueAlert', { name: alert.name, amount: alert.amount, days: alert.days })}
           </span>
           <a
             href={alert.href}

@@ -7,14 +7,17 @@ import { X, Send, Mail, Paperclip } from 'lucide-react'
 interface ComposeModalProps {
   onClose: () => void
   onSent?: () => void
+  initialTo?: string
+  initialSubject?: string
+  initialBody?: string
 }
 
-export function ComposeModal({ onClose, onSent }: ComposeModalProps) {
+export function ComposeModal({ onClose, onSent, initialTo = '', initialSubject = '', initialBody = '' }: ComposeModalProps) {
   const t = useTranslations('communications')
   const tc = useTranslations('common')
-  const [to, setTo] = useState('')
-  const [subject, setSubject] = useState('')
-  const [body, setBody] = useState('')
+  const [to, setTo] = useState(initialTo)
+  const [subject, setSubject] = useState(initialSubject)
+  const [body, setBody] = useState(initialBody)
   const [attachments, setAttachments] = useState<File[]>([])
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)

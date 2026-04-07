@@ -83,7 +83,8 @@
     "todayAdded": "+{count} hoy",
     "alertView": "Vista",
     "alertDismiss": "Despedir",
-    "invoiceOverdueAlert": "Factura #{name} — €{amount} lleva {days} días de retraso."
+    "invoiceOverdueAlert": "Factura #{name} — €{amount} lleva {days} días de retraso.",
+    "statusOff": "Libre"
   },
   "communications": {
     "title": "Comunicaciones",
@@ -204,7 +205,10 @@
     "amountEur": "Importe (€)",
     "receipt": "Recibo",
     "uploadReceipt": "Subir",
-    "uploadingReceipt": "Subiendo…"
+    "uploadingReceipt": "Subiendo…",
+    "pennylaneConnect": "Conectar Pennylane",
+    "pennylaneConnected": "Pennylane conectado",
+    "followUpGenerating": "Generando correo..."
   },
   "planning": {
     "title": "Planificación",

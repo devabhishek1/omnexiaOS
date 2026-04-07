@@ -83,7 +83,8 @@
     "todayAdded": "+{count} vandaag",
     "alertView": "Weergave",
     "alertDismiss": "Afwijzen",
-    "invoiceOverdueAlert": "Factuur #{name} — €{amount} is {days} dagen achterstallig."
+    "invoiceOverdueAlert": "Factuur #{name} — €{amount} is {days} dagen achterstallig.",
+    "statusOff": "Vrij"
   },
   "communications": {
     "title": "Communicatie",
@@ -204,7 +205,10 @@
     "amountEur": "Bedrag (€)",
     "receipt": "Bon",
     "uploadReceipt": "Uploaden",
-    "uploadingReceipt": "Uploaden…"
+    "uploadingReceipt": "Uploaden…",
+    "pennylaneConnect": "Sluit Pennylane aan",
+    "pennylaneConnected": "Pennylane aangesloten",
+    "followUpGenerating": "E-mail genereren..."
   },
   "planning": {
     "title": "Planning",

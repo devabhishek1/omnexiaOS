@@ -72,7 +72,7 @@
     "digestLoading": "Loading digest...",
     "digestNoContent": "No digest yet for today.",
     "digestGenerate": "Generate",
-    "digestRegenerate": "Regenerate \u2192",
+    "digestRegenerate": "Regenerate →",
     "digestRegenerating": "Regenerating...",
     "latestMessages": "Latest Messages",
     "financeSnapshot": "Finance Snapshot",
@@ -83,7 +83,8 @@
     "todayAdded": "+{count} today",
     "alertView": "View",
     "alertDismiss": "Dismiss",
-    "invoiceOverdueAlert": "Invoice #{name} — €{amount} is {days} days overdue."
+    "invoiceOverdueAlert": "Invoice #{name} — €{amount} is {days} days overdue.",
+    "statusOff": "Off"
   },
   "communications": {
     "title": "Communications",
@@ -204,7 +205,10 @@
     "amountEur": "Amount (€)",
     "receipt": "Receipt",
     "uploadReceipt": "Upload",
-    "uploadingReceipt": "Uploading…"
+    "uploadingReceipt": "Uploading…",
+    "pennylaneConnect": "Connect Pennylane",
+    "pennylaneConnected": "Pennylane connected",
+    "followUpGenerating": "Generating email..."
   },
   "planning": {
     "title": "Planning",

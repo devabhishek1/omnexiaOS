@@ -83,7 +83,8 @@
     "todayAdded": "+{count} heute",
     "alertView": "Sicht",
     "alertDismiss": "Zurückweisen",
-    "invoiceOverdueAlert": "Rechnung #{name} — €{amount} ist {days} Tage überfällig."
+    "invoiceOverdueAlert": "Rechnung #{name} — €{amount} ist {days} Tage überfällig.",
+    "statusOff": "Frei"
   },
   "communications": {
     "title": "Kommunikation",
@@ -204,7 +205,10 @@
     "amountEur": "Betrag (€)",
     "receipt": "Quittung",
     "uploadReceipt": "Hochladen",
-    "uploadingReceipt": "Hochladen…"
+    "uploadingReceipt": "Hochladen…",
+    "pennylaneConnect": "Pennylane verbinden",
+    "pennylaneConnected": "Pennylane verbunden",
+    "followUpGenerating": "E-Mail wird generiert..."
   },
   "planning": {
     "title": "Planung",
