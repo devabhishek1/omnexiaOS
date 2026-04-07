@@ -47,23 +47,16 @@ export default async function DashboardLayout({
     redirect('/onboarding')
   }
 
-  // Fetch active business
+  // Fetch active business + all memberships in parallel
   const activeBizId = userProfile.active_business_id ?? userProfile.business_id
-  const { data: business } = await supabase
-    .from('businesses')
-    .select('*')
-    .eq('id', activeBizId)
-    .single()
+  const [{ data: business }, { data: membershipRows }] = await Promise.all([
+    supabase.from('businesses').select('*').eq('id', activeBizId).single(),
+    supabase.from('user_businesses').select('*, business:businesses(*)').eq('user_id', userProfile.id),
+  ])
 
   if (!business) {
     redirect('/onboarding')
   }
-
-  // Fetch all businesses this user belongs to (for the switcher)
-  const { data: membershipRows } = await supabase
-    .from('user_businesses')
-    .select('*, business:businesses(*)')
-    .eq('user_id', userProfile.id)
 
   const allBusinesses: UserBusiness[] = (membershipRows ?? []) as UserBusiness[]
 

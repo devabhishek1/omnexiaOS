@@ -4,8 +4,13 @@ import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Search } from 'lucide-react'
+import dynamic from 'next/dynamic'
 import type { User } from '@/types/database'
-import { NotificationPanel } from './NotificationPanel'
+
+const NotificationPanel = dynamic(
+  () => import('./NotificationPanel').then(m => ({ default: m.NotificationPanel })),
+  { ssr: false }
+)
 
 const pageTitleKeys: Record<string, string> = {
   overview: 'overview',

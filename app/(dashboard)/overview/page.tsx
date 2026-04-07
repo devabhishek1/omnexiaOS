@@ -1,10 +1,21 @@
+import dynamic from 'next/dynamic'
 import { AlertStrip } from '@/components/overview/AlertStrip'
-import { DigestCard } from '@/components/overview/DigestCard'
 import { StatCards } from '@/components/overview/StatCards'
 import { QuickActions } from '@/components/overview/QuickActions'
-import { LatestMessages } from '@/components/overview/LatestMessages'
-import { FinanceSnapshot } from '@/components/overview/FinanceSnapshot'
-import { WhoIsIn } from '@/components/overview/WhoIsIn'
+
+// Lazy-load heavy components that are below the fold or AI-driven
+const DigestCard = dynamic(() => import('@/components/overview/DigestCard').then(m => ({ default: m.DigestCard })), {
+  loading: () => <div style={{ height: '120px', borderRadius: '12px', background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }} />,
+})
+const LatestMessages = dynamic(() => import('@/components/overview/LatestMessages').then(m => ({ default: m.LatestMessages })), {
+  loading: () => <div style={{ height: '300px', borderRadius: '12px', background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }} />,
+})
+const FinanceSnapshot = dynamic(() => import('@/components/overview/FinanceSnapshot').then(m => ({ default: m.FinanceSnapshot })), {
+  loading: () => <div style={{ height: '300px', borderRadius: '12px', background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }} />,
+})
+const WhoIsIn = dynamic(() => import('@/components/overview/WhoIsIn').then(m => ({ default: m.WhoIsIn })), {
+  loading: () => <div style={{ height: '140px', borderRadius: '12px', background: 'var(--bg-surface)', border: '1px solid var(--border-default)' }} />,
+})
 
 export default function OverviewPage() {
   return (
