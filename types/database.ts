@@ -16,6 +16,7 @@ export type Business = {
 export type User = {
   id: string
   business_id: string
+  active_business_id: string | null
   email: string
   full_name: string | null
   avatar_url: string | null
@@ -28,6 +29,22 @@ export type User = {
   }
   status: 'active' | 'on_leave' | 'deactivated'
   created_at: string
+}
+
+export type UserBusiness = {
+  id: string
+  user_id: string
+  business_id: string
+  role: 'admin' | 'manager' | 'employee' | 'accountant'
+  module_access: {
+    communications: boolean
+    finance: boolean
+    planning: boolean
+    team: boolean
+  } | null
+  joined_at: string
+  // Joined business data
+  business?: Business
 }
 
 export type Invoice = {

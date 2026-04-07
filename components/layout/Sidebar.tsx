@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
+import { useRef, useState, useEffect } from 'react'
 import {
   LayoutDashboard,
   Inbox,
@@ -11,6 +12,8 @@ import {
   Users,
   Settings,
   ChevronDown,
+  Check,
+  Building2,
 } from 'lucide-react'
 import { useDashboard } from './DashboardContext'
 import type { User, Business } from '@/types/database'
@@ -53,20 +56,73 @@ interface SidebarProps {
 export function Sidebar({ user: _user, business: _business }: SidebarProps) {
   const pathname = usePathname()
   const t = useTranslations('nav')
-  // Use context user for real-time updates to role/module_access
-  const { user, business } = useDashboard()
+  const { user, business, allBusinesses, switchBusiness, switching } = useDashboard()
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   const isAdmin = user.role === 'admin'
+  const activeBizId = user.active_business_id ?? user.business_id
 
   const visibleItems = ALL_NAV_ITEMS.filter((item) => {
     if (!item.moduleKey) return isAdmin
-    // Employees only see modules explicitly granted to them
     return user.module_access?.[item.moduleKey] === true
   })
 
   const isActive = (href: string) => {
     const segment = pathname.split('/').filter(Boolean)[0]
     return `/${segment}` === href
+  }
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false)
+      }
+    }
+    if (dropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [dropdownOpen])
+
+  function BusinessAvatar({ logoUrl, name, size = 28 }: { logoUrl: string | null; name: string; size?: number }) {
+    if (logoUrl) {
+      return (
+        <img
+          src={logoUrl}
+          alt={name}
+          style={{
+            width: size,
+            height: size,
+            borderRadius: '50%',
+            objectFit: 'cover',
+            border: '1px solid var(--border-default)',
+            flexShrink: 0,
+          }}
+        />
+      )
+    }
+    return (
+      <div
+        style={{
+          width: size,
+          height: size,
+          borderRadius: '50%',
+          background: 'var(--omnexia-accent-light)',
+          border: '1px solid var(--border-default)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          fontSize: size < 32 ? '11px' : '13px',
+          fontWeight: 700,
+          color: 'var(--omnexia-accent)',
+        }}
+      >
+        {getInitials(name)}
+      </div>
+    )
   }
 
   return (
@@ -140,40 +196,28 @@ export function Sidebar({ user: _user, business: _business }: SidebarProps) {
 
         {/* Business selector */}
         <div
+          ref={dropdownRef}
           style={{
             padding: '16px 20px',
             borderBottom: '1px solid var(--border-default)',
+            position: 'relative',
           }}
         >
           <button
             className="w-full flex items-center gap-2 rounded-[20px] text-left"
             style={{
-              background: 'var(--bg-elevated)',
-              border: '1px solid var(--border-default)',
+              background: dropdownOpen ? 'var(--bg-elevated)' : 'var(--bg-elevated)',
+              border: `1px solid ${dropdownOpen ? 'var(--omnexia-accent)' : 'var(--border-default)'}`,
               padding: '8px 12px',
-              cursor: 'pointer',
-              transition: 'background 0.15s',
+              cursor: switching ? 'wait' : 'pointer',
+              transition: 'border-color 0.15s',
+              opacity: switching ? 0.6 : 1,
             }}
+            onClick={() => !switching && setDropdownOpen((o) => !o)}
           >
-            {/* Business avatar */}
-            <div
-              style={{
-                width: '28px',
-                height: '28px',
-                borderRadius: '50%',
-                background: 'var(--omnexia-accent-light)',
-                border: '1px solid var(--border-default)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-                fontSize: '11px',
-                fontWeight: 700,
-                color: 'var(--omnexia-accent)',
-              }}
-            >
-              {getInitials(business.name)}
-            </div>
+            {/* Business logo or initials */}
+            <BusinessAvatar logoUrl={business.logo_url} name={business.name} size={28} />
+
             <div className="sidebar-label flex-1 min-w-0">
               <div
                 style={{
@@ -197,17 +241,142 @@ export function Sidebar({ user: _user, business: _business }: SidebarProps) {
                   borderRadius: '10px',
                   display: 'inline-block',
                   marginTop: '1px',
+                  textTransform: 'capitalize',
                 }}
               >
-                Plan Pro
+                {user.role}
               </div>
             </div>
             <ChevronDown
               size={14}
               className="sidebar-label"
-              style={{ color: 'var(--text-muted)', flexShrink: 0 }}
+              style={{
+                color: 'var(--text-muted)',
+                flexShrink: 0,
+                transform: dropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.15s',
+              }}
             />
           </button>
+
+          {/* Dropdown */}
+          {dropdownOpen && allBusinesses.length > 0 && (
+            <div
+              className="sidebar-label"
+              style={{
+                position: 'absolute',
+                top: 'calc(100% - 4px)',
+                left: '12px',
+                right: '12px',
+                background: 'var(--bg-surface)',
+                border: '1px solid var(--border-default)',
+                borderRadius: '12px',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.10)',
+                zIndex: 50,
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  padding: '6px 10px',
+                  fontSize: '10px',
+                  fontWeight: 600,
+                  color: 'var(--text-muted)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  borderBottom: '1px solid var(--border-default)',
+                }}
+              >
+                Your workspaces
+              </div>
+              {allBusinesses.map((membership) => {
+                const biz = membership.business
+                if (!biz) return null
+                const isCurrentBiz = biz.id === activeBizId
+                return (
+                  <button
+                    key={biz.id}
+                    className="w-full flex items-center gap-2 text-left"
+                    style={{
+                      padding: '9px 12px',
+                      background: isCurrentBiz ? 'var(--omnexia-accent-light)' : 'transparent',
+                      cursor: isCurrentBiz ? 'default' : 'pointer',
+                      transition: 'background 0.1s',
+                      border: 'none',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isCurrentBiz) e.currentTarget.style.background = 'var(--bg-elevated)'
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isCurrentBiz) e.currentTarget.style.background = 'transparent'
+                    }}
+                    onClick={async () => {
+                      if (!isCurrentBiz) {
+                        setDropdownOpen(false)
+                        await switchBusiness(biz.id)
+                      }
+                    }}
+                  >
+                    <BusinessAvatar logoUrl={biz.logo_url} name={biz.name} size={26} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          color: isCurrentBiz ? 'var(--omnexia-accent)' : 'var(--text-primary)',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {biz.name}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: '10px',
+                          color: 'var(--text-muted)',
+                          textTransform: 'capitalize',
+                        }}
+                      >
+                        {membership.role}
+                      </div>
+                    </div>
+                    {isCurrentBiz && (
+                      <Check size={12} style={{ color: 'var(--omnexia-accent)', flexShrink: 0 }} />
+                    )}
+                  </button>
+                )
+              })}
+
+              {/* Add new business option */}
+              <div style={{ borderTop: '1px solid var(--border-default)' }}>
+                <a
+                  href="/onboarding?new=1"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '9px 12px',
+                    fontSize: '12px',
+                    color: 'var(--text-muted)',
+                    textDecoration: 'none',
+                    transition: 'background 0.1s, color 0.1s',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'var(--bg-elevated)'
+                    e.currentTarget.style.color = 'var(--text-primary)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent'
+                    e.currentTarget.style.color = 'var(--text-muted)'
+                  }}
+                >
+                  <Building2 size={14} />
+                  <span>Add new business</span>
+                </a>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Navigation */}

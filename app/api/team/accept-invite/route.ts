@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 // Called after an invited employee signs up via email/password.
 // Links the new auth user to the business and the placeholder employee record.
+// Supports multi-business: saves existing membership before switching.
 export async function POST(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -30,8 +31,43 @@ export async function POST(request: Request) {
     team: false,
   }
 
-  // Upsert the users row — handles both fresh signups and cases where the row
-  // was manually deleted (recreates it so FK constraints on employees don't fail)
+  // Fetch existing user row to preserve current business membership
+  const { data: existingUser } = await admin
+    .from('users')
+    .select('id, business_id, role, module_access')
+    .eq('id', user.id)
+    .single()
+
+  // If user already belongs to a business, save that membership to user_businesses
+  // so they can switch back to it later.
+  if (existingUser?.business_id && existingUser.business_id !== businessId) {
+    await admin
+      .from('user_businesses')
+      .upsert(
+        {
+          user_id: user.id,
+          business_id: existingUser.business_id,
+          role: existingUser.role ?? 'employee',
+          module_access: existingUser.module_access,
+        },
+        { onConflict: 'user_id,business_id' }
+      )
+  }
+
+  // Save the new business membership to user_businesses
+  await admin
+    .from('user_businesses')
+    .upsert(
+      {
+        user_id: user.id,
+        business_id: businessId,
+        role: 'employee',
+        module_access: moduleAccess,
+      },
+      { onConflict: 'user_id,business_id' }
+    )
+
+  // Upsert the users row — switch active business to the newly accepted invite
   const { error: userError } = await admin
     .from('users')
     .upsert(
@@ -41,6 +77,7 @@ export async function POST(request: Request) {
         full_name: user.user_metadata?.full_name ?? user.email?.split('@')[0] ?? null,
         avatar_url: user.user_metadata?.avatar_url ?? null,
         business_id: businessId,
+        active_business_id: businessId,
         role: 'employee',
         onboarding_complete: true,
         module_access: moduleAccess,

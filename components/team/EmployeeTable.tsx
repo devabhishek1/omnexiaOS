@@ -27,6 +27,7 @@ interface Props {
   currentUserId: string
   onEditPermissions: (employee: Employee, user: User | null) => void
   onDeactivate: (employee: Employee) => void
+  onReactivate: (employee: Employee) => void
   onRemove: (employee: Employee) => void
 }
 
@@ -48,7 +49,7 @@ function initials(name: string) {
   return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
 }
 
-export default function EmployeeTable({ employees, users, currentUserId, onEditPermissions, onDeactivate, onRemove }: Props) {
+export default function EmployeeTable({ employees, users, currentUserId, onEditPermissions, onDeactivate, onReactivate, onRemove }: Props) {
   const t = useTranslations('team')
   const tc = useTranslations('common')
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
@@ -178,6 +179,14 @@ export default function EmployeeTable({ employees, users, currentUserId, onEditP
                               style={{ display: 'block', width: '100%', padding: '10px 14px', background: 'none', border: 'none', textAlign: 'left', fontSize: '13px', cursor: 'pointer', color: '#DC2626' }}
                             >
                               {t('deactivate')}
+                            </button>
+                          )}
+                          {isDeactivated && (
+                            <button
+                              onClick={() => { onReactivate(emp); closeMenu() }}
+                              style={{ display: 'block', width: '100%', padding: '10px 14px', background: 'none', border: 'none', textAlign: 'left', fontSize: '13px', cursor: 'pointer', color: '#16A34A' }}
+                            >
+                              {t('reactivate')}
                             </button>
                           )}
                           {!isMe && (

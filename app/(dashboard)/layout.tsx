@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import type { User, Business } from '@/types/database'
+import { createAdminClient } from '@/lib/supabase/admin'
+import type { User, Business, UserBusiness } from '@/types/database'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Topbar } from '@/components/layout/Topbar'
 import { DashboardProvider } from '@/components/layout/DashboardContext'
@@ -46,15 +47,42 @@ export default async function DashboardLayout({
     redirect('/onboarding')
   }
 
-  // Fetch business
+  // Fetch active business
+  const activeBizId = userProfile.active_business_id ?? userProfile.business_id
   const { data: business } = await supabase
     .from('businesses')
     .select('*')
-    .eq('id', userProfile.business_id)
+    .eq('id', activeBizId)
     .single()
 
   if (!business) {
     redirect('/onboarding')
+  }
+
+  // Fetch all businesses this user belongs to (for the switcher)
+  const { data: membershipRows } = await supabase
+    .from('user_businesses')
+    .select('*, business:businesses(*)')
+    .eq('user_id', userProfile.id)
+
+  const allBusinesses: UserBusiness[] = (membershipRows ?? []) as UserBusiness[]
+
+  // Deactivated user: kick them out — switch to another business or send to /no-business
+  if (userProfile.status === 'deactivated') {
+    const otherMembership = (membershipRows ?? []).find(m => m.business_id !== activeBizId) as UserBusiness | undefined
+    if (otherMembership) {
+      const admin = createAdminClient()
+      await admin.from('users').update({
+        business_id: otherMembership.business_id,
+        active_business_id: otherMembership.business_id,
+        role: otherMembership.role,
+        module_access: otherMembership.module_access,
+        status: 'active',
+      }).eq('id', authUser.id)
+      redirect('/overview')
+    } else {
+      redirect('/no-business')
+    }
   }
 
   // Route guard: employees have restricted access
@@ -79,7 +107,7 @@ export default async function DashboardLayout({
   }
 
   return (
-    <DashboardProvider user={userProfile as User} business={business as Business}>
+    <DashboardProvider user={userProfile as User} business={business as Business} allBusinesses={allBusinesses}>
       <div className="flex min-h-screen bg-[var(--bg-base)]">
         <Sidebar user={userProfile as User} business={business as Business} />
         <div

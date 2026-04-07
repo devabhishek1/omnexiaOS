@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { startOfWeek, addDays, format } from 'date-fns'
 
 interface Employee { id: string; full_name: string }

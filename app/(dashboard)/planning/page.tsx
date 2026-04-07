@@ -28,6 +28,7 @@ export default function PlanningPage() {
   const [countryCode, setCountryCode] = useState('FR')
   const [currentUserId, setCurrentUserId] = useState('')
   const [currentEmployeeId, setCurrentEmployeeId] = useState<string | null>(null)
+  const [currentUserRole, setCurrentUserRole] = useState<string>('employee')
   const [loading, setLoading] = useState(true)
 
   const supabase = createClient()
@@ -37,9 +38,10 @@ export default function PlanningPage() {
     if (!user) return
     setCurrentUserId(user.id)
 
-    const { data: userRow } = await supabase.from('users').select('business_id').eq('id', user.id).single()
+    const { data: userRow } = await supabase.from('users').select('business_id, role').eq('id', user.id).single()
     if (!userRow?.business_id) return
     setBusinessId(userRow.business_id)
+    setCurrentUserRole(userRow.role ?? 'employee')
 
     const { data: biz } = await supabase.from('businesses').select('country_code').eq('id', userRow.business_id).single()
     const cc = biz?.country_code?.trim() ?? 'FR'
@@ -175,6 +177,7 @@ export default function PlanningPage() {
         employees={employees}
         currentUserId={currentUserId}
         currentEmployeeId={currentEmployeeId}
+        currentUserRole={currentUserRole}
         businessId={businessId}
         onRequestsChange={setTimeOff}
       />

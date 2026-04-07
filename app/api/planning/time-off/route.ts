@@ -3,6 +3,65 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getResend } from '@/lib/resend/client'
 import { timeOffResponseTemplate } from '@/lib/resend/templates/time-off-response'
+import { timeOffRequestTemplate } from '@/lib/resend/templates/time-off-request'
+
+export async function POST(request: Request) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { businessId, employeeId, startDate, endDate, reason } = await request.json()
+  if (!businessId || !employeeId || !startDate || !endDate) {
+    return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
+  }
+
+  const admin = createAdminClient()
+
+  const { data: inserted, error } = await admin
+    .from('time_off_requests')
+    .insert({ business_id: businessId, employee_id: employeeId, start_date: startDate, end_date: endDate, reason: reason || null, status: 'pending' })
+    .select()
+    .single()
+
+  if (error || !inserted) {
+    return NextResponse.json({ error: error?.message ?? 'Insert failed' }, { status: 500 })
+  }
+
+  // Email the admin/owner of the business
+  try {
+    const { data: emp } = await admin.from('employees').select('full_name').eq('id', employeeId).single()
+    const { data: biz } = await admin.from('businesses').select('name').eq('id', businessId).single()
+    const { data: admins } = await admin
+      .from('users')
+      .select('email')
+      .eq('business_id', businessId)
+      .in('role', ['admin', 'manager'])
+
+    const dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL}/planning`
+    const resend = getResend()
+
+    for (const adminUser of admins ?? []) {
+      if (!adminUser.email) continue
+      await resend.emails.send({
+        from: 'Omnexia <notifications@omnexia.eu>',
+        to: adminUser.email,
+        subject: `${emp?.full_name ?? 'An employee'} requested time off`,
+        html: timeOffRequestTemplate({
+          employeeName: emp?.full_name ?? 'An employee',
+          startDate,
+          endDate,
+          reason: reason || null,
+          businessName: biz?.name ?? 'your company',
+          dashboardUrl,
+        }),
+      })
+    }
+  } catch (e) {
+    console.error('[planning/time-off POST] Resend error:', e)
+  }
+
+  return NextResponse.json({ ok: true, data: inserted })
+}
 
 export async function PATCH(request: Request) {
   const supabase = await createClient()
@@ -12,6 +71,12 @@ export async function PATCH(request: Request) {
   const { requestId, status } = await request.json()
   if (!requestId || !['approved', 'rejected'].includes(status)) {
     return NextResponse.json({ error: 'Missing or invalid fields' }, { status: 400 })
+  }
+
+  // Only admins and managers may approve/reject
+  const { data: userRow } = await supabase.from('users').select('role').eq('id', user.id).single()
+  if (!userRow || !['admin', 'manager'].includes(userRow.role)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   const admin = createAdminClient()

@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
-import { createClient } from '@/lib/supabase/client'
 import { Check, X } from 'lucide-react'
 
 interface Employee { id: string; full_name: string }
@@ -21,11 +20,12 @@ interface Props {
   employees: Employee[]
   currentUserId: string
   currentEmployeeId: string | null
+  currentUserRole: string
   businessId: string
   onRequestsChange: (r: TimeOffRequest[]) => void
 }
 
-export default function TimeOffPanel({ requests, employees, currentUserId, currentEmployeeId, businessId, onRequestsChange }: Props) {
+export default function TimeOffPanel({ requests, employees, currentUserId, currentEmployeeId, currentUserRole, businessId, onRequestsChange }: Props) {
   const t = useTranslations('planning')
   const tc = useTranslations('common')
   const [startDate, setStartDate] = useState('')
@@ -34,9 +34,10 @@ export default function TimeOffPanel({ requests, employees, currentUserId, curre
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
-  const supabase = createClient()
+  const isAdmin = currentUserRole === 'admin' || currentUserRole === 'manager'
   const pending = requests.filter(r => r.status === 'pending')
   const myRequests = currentEmployeeId ? requests.filter(r => r.employee_id === currentEmployeeId) : []
+  const visibleRequests = isAdmin ? requests : myRequests
 
   function getEmployeeName(id: string): string {
     return employees.find(e => e.id === id)?.full_name ?? 'Unknown'
@@ -46,17 +47,17 @@ export default function TimeOffPanel({ requests, employees, currentUserId, curre
     if (!startDate || !endDate || !currentEmployeeId) { setError('Please fill in all fields.'); return }
     if (endDate < startDate) { setError('End date must be after start date.'); return }
     setError(''); setSubmitting(true)
-    const { data, error: err } = await supabase.from('time_off_requests').insert({
-      business_id: businessId,
-      employee_id: currentEmployeeId,
-      start_date: startDate,
-      end_date: endDate,
-      reason: reason || null,
-      status: 'pending',
-    }).select().single()
-    if (!err && data) {
-      onRequestsChange([...requests, data as TimeOffRequest])
+    const res = await fetch('/api/planning/time-off', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ businessId, employeeId: currentEmployeeId, startDate, endDate, reason }),
+    })
+    const result = await res.json()
+    if (result.data) {
+      onRequestsChange([...requests, result.data as TimeOffRequest])
       setStartDate(''); setEndDate(''); setReason('')
+    } else {
+      setError(result.error ?? 'Failed to submit request.')
     }
     setSubmitting(false)
   }
@@ -85,21 +86,21 @@ export default function TimeOffPanel({ requests, employees, currentUserId, curre
       <div style={{ backgroundColor: 'var(--bg-surface)', borderRadius: '12px', border: '1px solid var(--border)', padding: '20px 24px' }}>
         <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px' }}>
           {t('timeOffRequests')}
-          {pending.length > 0 && <span style={{ marginLeft: '8px', backgroundColor: '#EF4444', color: '#fff', borderRadius: '20px', padding: '1px 7px', fontSize: '11px' }}>{pending.length}</span>}
+          {isAdmin && pending.length > 0 && <span style={{ marginLeft: '8px', backgroundColor: '#EF4444', color: '#fff', borderRadius: '20px', padding: '1px 7px', fontSize: '11px' }}>{pending.length}</span>}
         </p>
 
-        {requests.length === 0 ? (
+        {visibleRequests.length === 0 ? (
           <p style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', padding: '16px 0' }}>{t('noRequests')}</p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {requests.slice().sort((a, b) => a.status === 'pending' ? -1 : 1).map(req => {
+            {visibleRequests.slice().sort((a, b) => a.status === 'pending' ? -1 : 1).map(req => {
               const sc = statusColors[req.status] ?? statusColors.pending
               return (
                 <div key={req.id} style={{ padding: '12px', backgroundColor: 'var(--bg-elevated)', borderRadius: '8px', border: '1px solid var(--border)' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
                     <div>
-                      <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>{getEmployeeName(req.employee_id)}</p>
-                      <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '2px 0 0' }}>
+                      {isAdmin && <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>{getEmployeeName(req.employee_id)}</p>}
+                      <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: isAdmin ? '2px 0 0' : 0 }}>
                         {new Date(req.start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                         {' – '}
                         {new Date(req.end_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
@@ -108,7 +109,7 @@ export default function TimeOffPanel({ requests, employees, currentUserId, curre
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '20px', backgroundColor: sc.bg, color: sc.color, textTransform: 'capitalize' }}>{req.status}</span>
-                      {req.status === 'pending' && (
+                      {isAdmin && req.status === 'pending' && (
                         <>
                           <button onClick={() => handleReview(req.id, 'approved')} style={{ background: '#DCFCE7', border: 'none', borderRadius: '6px', padding: '4px 6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
                             <Check size={12} color="#16A34A" />
@@ -154,8 +155,8 @@ export default function TimeOffPanel({ requests, employees, currentUserId, curre
               {submitting ? tc('sending') : t('requestTimeOff')}
             </button>
 
-            {/* Own history */}
-            {myRequests.length > 0 && (
+            {/* Own history — only shown to admins/managers since employees see their requests in the left panel */}
+            {isAdmin && myRequests.length > 0 && (
               <div style={{ marginTop: '8px' }}>
                 <p style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', margin: '0 0 8px' }}>{t('myRequests')}</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>

@@ -116,15 +116,22 @@ export default function TeamPage() {
 
   async function handleDeactivateConfirm() {
     if (!deactivateTarget) return
-    // Optimistic update — flip status instantly in UI
     setEmployees(prev => prev.map(e => e.id === deactivateTarget.id ? { ...e, status: 'deactivated' } : e))
     setDeactivateTarget(null)
-    // Persist to DB: status on employees table is now the source of truth
     await supabase.from('employees').update({ status: 'deactivated' }).eq('id', deactivateTarget.id)
     if (deactivateTarget.user_id) {
       await supabase.from('users').update({ status: 'deactivated' }).eq('id', deactivateTarget.user_id)
     }
     await logActivity(supabase, { businessId, userId: currentUserId, action: 'employee.deactivated', targetType: 'employee', targetId: deactivateTarget.id })
+  }
+
+  async function handleReactivate(emp: Employee) {
+    setEmployees(prev => prev.map(e => e.id === emp.id ? { ...e, status: 'active' } : e))
+    await supabase.from('employees').update({ status: 'active' }).eq('id', emp.id)
+    if (emp.user_id) {
+      await supabase.from('users').update({ status: 'active' }).eq('id', emp.user_id)
+    }
+    await logActivity(supabase, { businessId, userId: currentUserId, action: 'employee.reactivated', targetType: 'employee', targetId: emp.id, metadata: { name: emp.full_name } })
   }
 
   // Users list for activity log names
@@ -161,6 +168,7 @@ export default function TeamPage() {
         currentUserId={currentUserId}
         onEditPermissions={(emp, user) => { setPermissionsEmployee(emp); setPermissionsUser(user) }}
         onDeactivate={(emp) => setDeactivateTarget(emp)}
+        onReactivate={handleReactivate}
         onRemove={(emp) => setRemoveTarget(emp)}
       />
 
