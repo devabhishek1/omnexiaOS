@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   // Get inviter info + business
   const { data: inviterRow } = await admin
     .from('users')
-    .select('full_name, business_id, businesses(name, locale)')
+    .select('full_name, business_id, businesses!business_id(name, locale)')
     .eq('id', user.id)
     .single()
 
