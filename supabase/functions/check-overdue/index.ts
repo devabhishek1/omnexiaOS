@@ -23,6 +23,8 @@ const overdueStrings: Record<EmailLocale, {
   action: (biz: string) => string
   button: string
   footer: string
+  notifTitle: (client: string) => string
+  notifBody: (currency: string, amount: string, days: number) => string
 }> = {
   en: {
     subject: (client, currency, amount) => `Invoice overdue: ${client} — ${currency} ${amount}`,
@@ -32,6 +34,8 @@ const overdueStrings: Record<EmailLocale, {
     action: (biz) => `Log in to <strong>${biz}</strong>'s Omnexia workspace to follow up with the client or mark the invoice as paid.`,
     button: 'View invoice →',
     footer: 'Omnexia — Business OS for European SMBs',
+    notifTitle: (client) => `Invoice overdue: ${client}`,
+    notifBody: (currency, amount, days) => `${currency} ${amount} — ${days} day${days !== 1 ? 's' : ''} overdue`,
   },
   fr: {
     subject: (client, currency, amount) => `Facture en retard : ${client} — ${currency} ${amount}`,
@@ -41,6 +45,8 @@ const overdueStrings: Record<EmailLocale, {
     action: (biz) => `Connectez-vous à l'espace Omnexia de <strong>${biz}</strong> pour contacter le client ou marquer la facture comme payée.`,
     button: 'Voir la facture →',
     footer: 'Omnexia — OS métier pour les PME européennes',
+    notifTitle: (client) => `Facture en retard : ${client}`,
+    notifBody: (currency, amount, days) => `${currency} ${amount} — ${days} jour${days !== 1 ? 's' : ''} de retard`,
   },
   de: {
     subject: (client, currency, amount) => `Rechnung überfällig: ${client} — ${currency} ${amount}`,
@@ -50,6 +56,8 @@ const overdueStrings: Record<EmailLocale, {
     action: (biz) => `Melden Sie sich beim Omnexia-Workspace von <strong>${biz}</strong> an, um den Kunden zu kontaktieren oder die Rechnung als bezahlt zu markieren.`,
     button: 'Rechnung ansehen →',
     footer: 'Omnexia — Business OS für europäische KMU',
+    notifTitle: (client) => `Rechnung überfällig: ${client}`,
+    notifBody: (currency, amount, days) => `${currency} ${amount} — ${days} Tag${days !== 1 ? 'e' : ''} überfällig`,
   },
   es: {
     subject: (client, currency, amount) => `Factura vencida: ${client} — ${currency} ${amount}`,
@@ -59,6 +67,8 @@ const overdueStrings: Record<EmailLocale, {
     action: (biz) => `Inicia sesión en el espacio de trabajo Omnexia de <strong>${biz}</strong> para hacer seguimiento al cliente o marcar la factura como pagada.`,
     button: 'Ver factura →',
     footer: 'Omnexia — OS empresarial para PYME europeas',
+    notifTitle: (client) => `Factura vencida: ${client}`,
+    notifBody: (currency, amount, days) => `${currency} ${amount} — ${days} día${days !== 1 ? 's' : ''} de retraso`,
   },
   it: {
     subject: (client, currency, amount) => `Fattura scaduta: ${client} — ${currency} ${amount}`,
@@ -68,6 +78,8 @@ const overdueStrings: Record<EmailLocale, {
     action: (biz) => `Accedi allo spazio di lavoro Omnexia di <strong>${biz}</strong> per contattare il cliente o contrassegnare la fattura come pagata.`,
     button: 'Visualizza fattura →',
     footer: 'Omnexia — OS aziendale per le PMI europee',
+    notifTitle: (client) => `Fattura scaduta: ${client}`,
+    notifBody: (currency, amount, days) => `${currency} ${amount} — ${days} giorno${days !== 1 ? 'i' : ''} di ritardo`,
   },
   nl: {
     subject: (client, currency, amount) => `Factuur achterstallig: ${client} — ${currency} ${amount}`,
@@ -77,6 +89,8 @@ const overdueStrings: Record<EmailLocale, {
     action: (biz) => `Log in op de Omnexia-werkruimte van <strong>${biz}</strong> om contact op te nemen met de klant of de factuur als betaald te markeren.`,
     button: 'Factuur bekijken →',
     footer: 'Omnexia — Business OS voor Europees MKB',
+    notifTitle: (client) => `Factuur achterstallig: ${client}`,
+    notifBody: (currency, amount, days) => `${currency} ${amount} — ${days} dag${days !== 1 ? 'en' : ''} achterstallig`,
   },
 }
 
@@ -189,8 +203,12 @@ Deno.serve(async () => {
           const prefs = (admin.notification_preferences ?? {}) as Record<string, boolean>
           const emailEnabled = prefs.overdue !== false // default true
 
-          const title = `Invoice overdue: ${invoice.client_name}`
-          const body = `${invoice.currency ?? 'EUR'} ${Number(invoice.total).toFixed(2)} — ${daysOverdue} day${daysOverdue !== 1 ? 's' : ''} overdue`
+          const locale = biz.locale ?? 'en'
+          const os = getOverdueStrings(locale)
+          const currency = invoice.currency ?? 'EUR'
+          const amount = Number(invoice.total).toFixed(2)
+          const title = os.notifTitle(invoice.client_name)
+          const body = os.notifBody(currency, amount, daysOverdue)
           const invoiceUrl = `${appUrl}/finance`
 
           // Insert in-app notification
@@ -206,10 +224,6 @@ Deno.serve(async () => {
 
           // Send email if enabled
           if (emailEnabled && admin.email) {
-            const locale = biz.locale ?? 'en'
-            const os = getOverdueStrings(locale)
-            const currency = invoice.currency ?? 'EUR'
-            const amount = Number(invoice.total).toFixed(2)
             const html = invoiceOverdueHtml({
               businessName: biz.name,
               clientName: invoice.client_name,

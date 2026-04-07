@@ -22,7 +22,17 @@ interface Props {
   onExpenseDeleted: (id: string) => void
 }
 
-const CATEGORIES = ['Office', 'Travel', 'Software', 'Marketing', 'Equipment', 'Meals', 'Other']
+const CATEGORIES = ['Office', 'Travel', 'Software', 'Marketing', 'Equipment', 'Meals', 'Other'] as const
+type Category = typeof CATEGORIES[number]
+const CATEGORY_KEYS: Record<Category, string> = {
+  Office: 'categoryOffice',
+  Travel: 'categoryTravel',
+  Software: 'categorySoftware',
+  Marketing: 'categoryMarketing',
+  Equipment: 'categoryEquipment',
+  Meals: 'categoryMeals',
+  Other: 'categoryOther',
+}
 
 function fmt(n: number, currency = 'EUR') {
   return new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(n)
@@ -117,9 +127,9 @@ export default function ExpenseTable({ expenses, businessId, onExpenseAdded, onE
       {adding && (
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: '8px', marginBottom: '12px', padding: '12px', backgroundColor: 'var(--bg-elevated)', borderRadius: '8px' }}>
           <input value={description} onChange={e => setDescription(e.target.value)} placeholder={t('description')} style={inputStyle} />
-          <input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="Amount (€)" style={inputStyle} />
+          <input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder={t('amountEur')} style={inputStyle} />
           <select value={category} onChange={e => setCategory(e.target.value)} style={inputStyle}>
-            {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+            {CATEGORIES.map(c => <option key={c} value={c}>{t(CATEGORY_KEYS[c as Category])}</option>)}
           </select>
           <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
           <div style={{ display: 'flex', gap: '6px' }}>
@@ -138,7 +148,7 @@ export default function ExpenseTable({ expenses, businessId, onExpenseAdded, onE
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid var(--border)' }}>
-              {[tc('date'), t('description'), t('expenseCategory'), tc('amount'), 'Receipt', ''].map(h => (
+              {[tc('date'), t('description'), t('expenseCategory'), tc('amount'), t('receipt'), ''].map(h => (
                 <th key={h} style={{ textAlign: 'left', padding: '8px 0', color: 'var(--text-muted)', fontWeight: 500, fontSize: '12px' }}>{h}</th>
               ))}
             </tr>
@@ -149,15 +159,15 @@ export default function ExpenseTable({ expenses, businessId, onExpenseAdded, onE
                 <td style={{ padding: '10px 0', color: 'var(--text-muted)' }}>{new Date(e.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
                 <td style={{ padding: '10px 8px', color: 'var(--text-primary)' }}>{e.description}</td>
                 <td style={{ padding: '10px 8px' }}>
-                  <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', backgroundColor: 'var(--bg-elevated)', color: 'var(--text-secondary)' }}>{e.category}</span>
+                  <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', backgroundColor: 'var(--bg-elevated)', color: 'var(--text-secondary)' }}>{t(CATEGORY_KEYS[e.category as Category] ?? 'categoryOther')}</span>
                 </td>
                 <td style={{ padding: '10px 8px', fontWeight: 600, color: 'var(--text-primary)' }}>{fmt(e.amount, e.currency)}</td>
                 <td style={{ padding: '10px 8px' }}>
                   {e.receipt_url ? (
-                    <button onClick={() => handleViewReceipt(e.receipt_url!)} style={{ background: 'none', border: 'none', padding: 0, fontSize: '12px', color: 'var(--omnexia-accent)', cursor: 'pointer' }}>View</button>
+                    <button onClick={() => handleViewReceipt(e.receipt_url!)} style={{ background: 'none', border: 'none', padding: 0, fontSize: '12px', color: 'var(--omnexia-accent)', cursor: 'pointer' }}>{tc('view')}</button>
                   ) : (
                     <label style={{ cursor: 'pointer', fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <Upload size={11} /> {uploadingId === e.id ? 'Uploading…' : 'Upload'}
+                      <Upload size={11} /> {uploadingId === e.id ? t('uploadingReceipt') : t('uploadReceipt')}
                       <input type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={ev => ev.target.files?.[0] && handleReceiptUpload(e.id, ev.target.files[0])} />
                     </label>
                   )}

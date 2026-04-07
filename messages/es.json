@@ -193,7 +193,18 @@
     "legendRevenue": "Ingresos",
     "legendExpenses": "Gastos",
     "projectedCashFlow": "Flujo de caja proyectado",
-    "cashFlowSubtitle": "Próximos 30 días — basado en fechas de vencimiento de facturas pendientes"
+    "cashFlowSubtitle": "Próximos 30 días — basado en fechas de vencimiento de facturas pendientes",
+    "categoryOffice": "Oficina",
+    "categoryTravel": "Viaje",
+    "categorySoftware": "Software",
+    "categoryMarketing": "Marketing",
+    "categoryEquipment": "Equipamiento",
+    "categoryMeals": "Comidas",
+    "categoryOther": "Otro",
+    "amountEur": "Importe (€)",
+    "receipt": "Recibo",
+    "uploadReceipt": "Subir",
+    "uploadingReceipt": "Subiendo…"
   },
   "planning": {
     "title": "Planificación",
@@ -496,7 +507,10 @@
     "markAllRead": "Marcar todo como leído",
     "noNotifications": "Aún no hay notificaciones",
     "noNotificationsDesc": "Le avisaremos cuando algo necesite su atención.",
-    "justNow": "En este momento"
+    "justNow": "ahora mismo",
+    "minutesAgo": "hace {count}m",
+    "hoursAgo": "hace {count}h",
+    "daysAgo": "hace {count}d"
   },
   "errors": {
     "notFound": "Página no encontrada",

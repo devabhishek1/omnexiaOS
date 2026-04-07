@@ -193,7 +193,18 @@
     "legendRevenue": "Revenue",
     "legendExpenses": "Expenses",
     "projectedCashFlow": "Projected Cash Flow",
-    "cashFlowSubtitle": "Next 30 days — based on pending invoice due dates"
+    "cashFlowSubtitle": "Next 30 days — based on pending invoice due dates",
+    "categoryOffice": "Office",
+    "categoryTravel": "Travel",
+    "categorySoftware": "Software",
+    "categoryMarketing": "Marketing",
+    "categoryEquipment": "Equipment",
+    "categoryMeals": "Meals",
+    "categoryOther": "Other",
+    "amountEur": "Amount (€)",
+    "receipt": "Receipt",
+    "uploadReceipt": "Upload",
+    "uploadingReceipt": "Uploading…"
   },
   "planning": {
     "title": "Planning",
@@ -496,7 +507,10 @@
     "markAllRead": "Mark all read",
     "noNotifications": "No notifications yet",
     "noNotificationsDesc": "We'll let you know when something needs your attention.",
-    "justNow": "just now"
+    "justNow": "just now",
+    "minutesAgo": "{count}m ago",
+    "hoursAgo": "{count}h ago",
+    "daysAgo": "{count}d ago"
   },
   "errors": {
     "notFound": "Page not found",

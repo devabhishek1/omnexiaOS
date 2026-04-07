@@ -39,10 +39,10 @@ export function NotificationPanel({
     const diff = Date.now() - new Date(dateStr).getTime()
     const mins = Math.floor(diff / 60000)
     if (mins < 1) return t('justNow')
-    if (mins < 60) return `${mins}m ago`
+    if (mins < 60) return t('minutesAgo', { count: mins })
     const hours = Math.floor(mins / 60)
-    if (hours < 24) return `${hours}h ago`
-    return `${Math.floor(hours / 24)}d ago`
+    if (hours < 24) return t('hoursAgo', { count: hours })
+    return t('daysAgo', { count: Math.floor(hours / 24) })
   }
   const panelRef = useRef<HTMLDivElement>(null)
   const [notifications, setNotifications] = useState<Notification[]>([])

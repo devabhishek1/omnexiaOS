@@ -193,7 +193,18 @@
     "legendRevenue": "Ricavi",
     "legendExpenses": "Spese",
     "projectedCashFlow": "Flusso di cassa previsto",
-    "cashFlowSubtitle": "Prossimi 30 giorni — basato sulle scadenze delle fatture in sospeso"
+    "cashFlowSubtitle": "Prossimi 30 giorni — basato sulle scadenze delle fatture in sospeso",
+    "categoryOffice": "Ufficio",
+    "categoryTravel": "Viaggio",
+    "categorySoftware": "Software",
+    "categoryMarketing": "Marketing",
+    "categoryEquipment": "Attrezzatura",
+    "categoryMeals": "Pasti",
+    "categoryOther": "Altro",
+    "amountEur": "Importo (€)",
+    "receipt": "Ricevuta",
+    "uploadReceipt": "Carica",
+    "uploadingReceipt": "Caricamento…"
   },
   "planning": {
     "title": "Pianificazione",
@@ -496,7 +507,10 @@
     "markAllRead": "Segna tutto letto",
     "noNotifications": "Nessuna notifica ancora",
     "noNotificationsDesc": "Ti faremo sapere quando qualcosa richiede la tua attenzione.",
-    "justNow": "proprio adesso"
+    "justNow": "proprio adesso",
+    "minutesAgo": "{count}m fa",
+    "hoursAgo": "{count}h fa",
+    "daysAgo": "{count}g fa"
   },
   "errors": {
     "notFound": "Pagina non trovata",

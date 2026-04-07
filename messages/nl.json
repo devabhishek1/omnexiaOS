@@ -193,7 +193,18 @@
     "legendRevenue": "Omzet",
     "legendExpenses": "Uitgaven",
     "projectedCashFlow": "Geprojecteerde cashflow",
-    "cashFlowSubtitle": "Komende 30 dagen — gebaseerd op vervaldatums van openstaande facturen"
+    "cashFlowSubtitle": "Komende 30 dagen — gebaseerd op vervaldatums van openstaande facturen",
+    "categoryOffice": "Kantoor",
+    "categoryTravel": "Reizen",
+    "categorySoftware": "Software",
+    "categoryMarketing": "Marketing",
+    "categoryEquipment": "Uitrusting",
+    "categoryMeals": "Maaltijden",
+    "categoryOther": "Overige",
+    "amountEur": "Bedrag (€)",
+    "receipt": "Bon",
+    "uploadReceipt": "Uploaden",
+    "uploadingReceipt": "Uploaden…"
   },
   "planning": {
     "title": "Planning",
@@ -496,7 +507,10 @@
     "markAllRead": "Markeer alles als gelezen",
     "noNotifications": "Nog geen meldingen",
     "noNotificationsDesc": "Wij laten u weten wanneer iets uw aandacht nodig heeft.",
-    "justNow": "zojuist"
+    "justNow": "zojuist",
+    "minutesAgo": "{count}m geleden",
+    "hoursAgo": "{count}h geleden",
+    "daysAgo": "{count}d geleden"
   },
   "errors": {
     "notFound": "Pagina niet gevonden",

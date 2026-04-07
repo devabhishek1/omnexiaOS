@@ -40,6 +40,9 @@ const strings = {
     digestGreeting: (biz: string) => `Good morning, ${biz}`,
     digestMessageCount: (n: number) => `${n} message${n !== 1 ? 's' : ''} in the last 24 hours`,
     openDashboard: 'Open dashboard →',
+    // in-app notifications
+    notifInviteTitle: (email: string) => `Invitation sent to ${email}`,
+    notifInviteBody: (role: string) => `Role: ${role}`,
     // footer
     footerText: 'Omnexia — Business OS for European SMBs',
   },
@@ -77,6 +80,8 @@ const strings = {
     digestGreeting: (biz: string) => `Bonjour, ${biz}`,
     digestMessageCount: (n: number) => `${n} message${n !== 1 ? 's' : ''} au cours des dernières 24 heures`,
     openDashboard: 'Ouvrir le tableau de bord →',
+    notifInviteTitle: (email: string) => `Invitation envoyée à ${email}`,
+    notifInviteBody: (role: string) => `Rôle : ${role}`,
     footerText: 'Omnexia — OS métier pour les PME européennes',
   },
   de: {
@@ -113,6 +118,8 @@ const strings = {
     digestGreeting: (biz: string) => `Guten Morgen, ${biz}`,
     digestMessageCount: (n: number) => `${n} Nachricht${n !== 1 ? 'en' : ''} in den letzten 24 Stunden`,
     openDashboard: 'Dashboard öffnen →',
+    notifInviteTitle: (email: string) => `Einladung gesendet an ${email}`,
+    notifInviteBody: (role: string) => `Rolle: ${role}`,
     footerText: 'Omnexia — Business OS für europäische KMU',
   },
   es: {
@@ -149,6 +156,8 @@ const strings = {
     digestGreeting: (biz: string) => `Buenos días, ${biz}`,
     digestMessageCount: (n: number) => `${n} mensaje${n !== 1 ? 's' : ''} en las últimas 24 horas`,
     openDashboard: 'Abrir panel →',
+    notifInviteTitle: (email: string) => `Invitación enviada a ${email}`,
+    notifInviteBody: (role: string) => `Rol: ${role}`,
     footerText: 'Omnexia — OS empresarial para PYME europeas',
   },
   it: {
@@ -185,6 +194,8 @@ const strings = {
     digestGreeting: (biz: string) => `Buongiorno, ${biz}`,
     digestMessageCount: (n: number) => `${n} messagg${n !== 1 ? 'i' : 'io'} nelle ultime 24 ore`,
     openDashboard: 'Apri dashboard →',
+    notifInviteTitle: (email: string) => `Invito inviato a ${email}`,
+    notifInviteBody: (role: string) => `Ruolo: ${role}`,
     footerText: 'Omnexia — OS aziendale per le PMI europee',
   },
   nl: {
@@ -221,6 +232,8 @@ const strings = {
     digestGreeting: (biz: string) => `Goedemorgen, ${biz}`,
     digestMessageCount: (n: number) => `${n} bericht${n !== 1 ? 'en' : ''} in de afgelopen 24 uur`,
     openDashboard: 'Dashboard openen →',
+    notifInviteTitle: (email: string) => `Uitnodiging verzonden naar ${email}`,
+    notifInviteBody: (role: string) => `Rol: ${role}`,
     footerText: 'Omnexia — Business OS voor Europees MKB',
   },
 }

@@ -53,10 +53,11 @@ export async function POST(request: Request) {
   // Send invite email via Resend
   const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL}/signup?invite=${businessId}&email=${encodeURIComponent(email)}`
 
+  const { getEmailStrings } = await import('@/lib/resend/email-i18n')
+  const s = getEmailStrings(businessLocale)
+
   try {
     const resend = getResend()
-    const { getEmailStrings } = await import('@/lib/resend/email-i18n')
-    const s = getEmailStrings(businessLocale)
     await resend.emails.send({
       from: 'Omnexia <invites@omnexia.eu>',
       to: email,
@@ -68,13 +69,13 @@ export async function POST(request: Request) {
     // Non-fatal — employee record was created, email delivery failed
   }
 
-  // Insert in-app notification for the inviter
+  // Insert in-app notification for the inviter (in business locale)
   await admin.from('notifications').insert({
     business_id: businessId,
     user_id: user.id,
     type: 'invite',
-    title: `Invitation sent to ${email}`,
-    body: `Role: ${role}`,
+    title: s.notifInviteTitle(email),
+    body: s.notifInviteBody(role),
     link: '/team',
     is_read: false,
   })

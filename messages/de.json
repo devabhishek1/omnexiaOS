@@ -193,7 +193,18 @@
     "legendRevenue": "Einnahmen",
     "legendExpenses": "Ausgaben",
     "projectedCashFlow": "Geplanter Cashflow",
-    "cashFlowSubtitle": "Nächste 30 Tage — basierend auf Fälligkeitsdaten ausstehender Rechnungen"
+    "cashFlowSubtitle": "Nächste 30 Tage — basierend auf Fälligkeitsdaten ausstehender Rechnungen",
+    "categoryOffice": "Büro",
+    "categoryTravel": "Reisen",
+    "categorySoftware": "Software",
+    "categoryMarketing": "Marketing",
+    "categoryEquipment": "Ausrüstung",
+    "categoryMeals": "Mahlzeiten",
+    "categoryOther": "Sonstiges",
+    "amountEur": "Betrag (€)",
+    "receipt": "Quittung",
+    "uploadReceipt": "Hochladen",
+    "uploadingReceipt": "Hochladen…"
   },
   "planning": {
     "title": "Planung",
@@ -496,7 +507,10 @@
     "markAllRead": "Alles als gelesen markieren",
     "noNotifications": "Noch keine Benachrichtigungen",
     "noNotificationsDesc": "Wir informieren Sie, wenn etwas Ihre Aufmerksamkeit erfordert.",
-    "justNow": "soeben"
+    "justNow": "soeben",
+    "minutesAgo": "vor {count}m",
+    "hoursAgo": "vor {count}h",
+    "daysAgo": "vor {count}T"
   },
   "errors": {
     "notFound": "Seite nicht gefunden",
