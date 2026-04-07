@@ -3,6 +3,27 @@
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { actionLabel } from '@/lib/utils/activityLog'
+
+// Maps dot-notation action keys to translation key suffixes
+const ACTION_KEY_MAP: Record<string, string> = {
+  'invoice.created': 'action_invoice_created',
+  'invoice.updated': 'action_invoice_updated',
+  'invoice.status_changed': 'action_invoice_status_changed',
+  'expense.created': 'action_expense_created',
+  'expense.deleted': 'action_expense_deleted',
+  'shift.created': 'action_shift_created',
+  'shift.updated': 'action_shift_updated',
+  'shift.deleted': 'action_shift_deleted',
+  'time_off.requested': 'action_time_off_requested',
+  'time_off.approved': 'action_time_off_approved',
+  'time_off.rejected': 'action_time_off_rejected',
+  'message.replied': 'action_message_replied',
+  'employee.invited': 'action_employee_invited',
+  'employee.deactivated': 'action_employee_deactivated',
+  'permissions.updated': 'action_permissions_updated',
+  'employee.reactivated': 'action_employee_reactivated',
+  'employee.removed': 'action_employee_removed',
+}
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface ActivityLogEntry {
@@ -31,8 +52,16 @@ export default function ActivityLog({ logs, users }: Props) {
   const [page, setPage] = useState(1)
 
   function getUserName(id: string | null): string {
-    if (!id) return 'System'
-    return users.find(u => u.id === id)?.full_name ?? 'Unknown'
+    if (!id) return t('system')
+    return users.find(u => u.id === id)?.full_name ?? t('unknownUser')
+  }
+
+  function getActionLabel(action: string): string {
+    const key = ACTION_KEY_MAP[action]
+    if (key) {
+      try { return t(key as Parameters<typeof t>[0]) } catch { /* fall through */ }
+    }
+    return actionLabel(action)
   }
 
   const actionTypes = Array.from(new Set(logs.map(l => l.action))).sort()
@@ -58,7 +87,7 @@ export default function ActivityLog({ logs, users }: Props) {
           </select>
           <select value={filterAction} onChange={e => { setFilterAction(e.target.value); setPage(1) }} style={selectStyle}>
             <option value="all">{t('allActions')}</option>
-            {actionTypes.map(a => <option key={a} value={a}>{actionLabel(a)}</option>)}
+            {actionTypes.map(a => <option key={a} value={a}>{getActionLabel(a)}</option>)}
           </select>
         </div>
       </div>
@@ -78,7 +107,7 @@ export default function ActivityLog({ logs, users }: Props) {
             {paged.map((log, i) => (
               <tr key={log.id} style={{ borderBottom: i < paged.length - 1 ? '1px solid var(--border)' : 'none' }}>
                 <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-primary)', fontWeight: 500 }}>{getUserName(log.user_id)}</td>
-                <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-secondary)' }}>{actionLabel(log.action)}</td>
+                <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-secondary)' }}>{getActionLabel(log.action)}</td>
                 <td style={{ padding: '12px 16px', fontSize: '12px', color: 'var(--text-muted)' }}>
                   {log.target_type ? `${log.target_type}${log.target_id ? ` · ${log.target_id.slice(0, 8)}…` : ''}` : '—'}
                 </td>

@@ -333,7 +333,7 @@ export default function IntegrationsTab() {
             description={t('csvImportDescription')}
           >
             <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '10px' }}>
-              Expected columns: <strong>Client</strong>, <strong>Amount</strong>, <strong>Status</strong>, <strong>Due Date</strong>
+              {t('csvExpectedColumnsLabel')} <strong>Client</strong>, <strong>Amount</strong>, <strong>Status</strong>, <strong>Due Date</strong>
             </div>
             <button onClick={() => fileRef.current?.click()} style={secondaryBtnStyle}>{t('uploadFile')}</button>
             <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" style={{ display: 'none' }} onChange={handleCsvFile} />
@@ -370,7 +370,7 @@ export default function IntegrationsTab() {
 
             {importResult && (
               <div style={{ marginTop: '10px', fontSize: '12px', color: importResult.imported > 0 ? 'var(--green)' : 'var(--red)' }}>
-                {importResult.imported > 0 ? `✓ Imported ${importResult.imported} invoice(s)` : 'No invoices imported'}
+                {importResult.imported > 0 ? t('importedCount', { count: importResult.imported }) : t('noInvoicesImported')}
                 {importResult.errors.length > 0 && <div style={{ color: 'var(--red)', marginTop: '4px' }}>{importResult.errors.slice(0, 3).join(', ')}</div>}
               </div>
             )}

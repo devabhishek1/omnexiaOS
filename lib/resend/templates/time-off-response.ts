@@ -1,3 +1,5 @@
+import { getEmailStrings } from '@/lib/resend/email-i18n'
+
 export function timeOffResponseTemplate(params: {
   employeeName: string
   status: 'approved' | 'rejected'
@@ -5,7 +7,9 @@ export function timeOffResponseTemplate(params: {
   endDate: string
   businessName: string
   dashboardUrl: string
+  locale?: string
 }): string {
+  const s = getEmailStrings(params.locale)
   const approved = params.status === 'approved'
   return `<!DOCTYPE html>
 <html>
@@ -17,21 +21,21 @@ export function timeOffResponseTemplate(params: {
     </div>
     <div style="padding:32px">
       <h1 style="font-size:20px;font-weight:700;color:#111;margin:0 0 12px">
-        Your time-off request has been ${approved ? 'approved' : 'rejected'}
+        ${approved ? s.timeOffApprovedHeading : s.timeOffRejectedHeading}
       </h1>
       <p style="font-size:14px;color:#555;line-height:1.6;margin:0 0 16px">
-        Hi <strong>${params.employeeName}</strong>, your time-off request for the following dates has been <strong>${params.status}</strong> by <strong>${params.businessName}</strong>.
+        ${s.timeOffResponseBody(params.employeeName, approved, params.businessName)}
       </p>
       <div style="background:${approved ? '#DCFCE7' : '#FEE2E2'};border:1px solid ${approved ? '#BBF7D0' : '#FECACA'};border-radius:8px;padding:16px 20px;margin:16px 0">
-        <div style="font-size:13px;color:${approved ? '#15803D' : '#DC2626'};font-weight:500">Period requested</div>
+        <div style="font-size:13px;color:${approved ? '#15803D' : '#DC2626'};font-weight:500">${s.periodRequested}</div>
         <div style="font-size:16px;font-weight:700;color:${approved ? '#15803D' : '#DC2626'};margin-top:4px">${params.startDate} → ${params.endDate}</div>
       </div>
       <a href="${params.dashboardUrl}" style="display:inline-block;background:#2563EB;color:#fff;text-decoration:none;padding:12px 28px;border-radius:8px;font-size:14px;font-weight:600">
-        View in Omnexia →
+        ${s.viewButton}
       </a>
     </div>
     <div style="padding:16px 32px;border-top:1px solid #eee;text-align:center">
-      <span style="font-size:11px;color:#bbb">Omnexia — Business OS for European SMBs</span>
+      <span style="font-size:11px;color:#bbb">${s.footerText}</span>
     </div>
   </div>
 </body>

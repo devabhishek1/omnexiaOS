@@ -88,7 +88,7 @@ export default function WeeklyGrid({ employees, shifts, holidays, timeOff, count
 
     if (popover.type === 'create') {
       if (hasConflict(employeeId, date)) {
-        showToast('⚠ Conflict: this employee already has a shift on this day.')
+        showToast('⚠ ' + t('conflictSameDay'))
         setSaving(false)
         return
       }
@@ -106,7 +106,7 @@ export default function WeeklyGrid({ employees, shifts, holidays, timeOff, count
       }
     } else if (popover.shift) {
       if (hasConflict(employeeId, date, popover.shift.id)) {
-        showToast('⚠ Conflict: overlapping shift detected.')
+        showToast('⚠ ' + t('conflictOverlap'))
         setSaving(false)
         return
       }
@@ -262,7 +262,7 @@ export default function WeeklyGrid({ employees, shifts, holidays, timeOff, count
               </div>
               <div>
                 <label style={labelStyle}>{t('notes')}</label>
-                <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g. Opening shift" style={inputStyle} />
+                <input value={notes} onChange={e => setNotes(e.target.value)} placeholder={t('notesPlaceholder')} style={inputStyle} />
               </div>
             </div>
             <div style={{ display: 'flex', gap: '6px', marginTop: '12px' }}>

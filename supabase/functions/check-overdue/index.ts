@@ -14,6 +14,78 @@ const appUrl = Deno.env.get('NEXT_PUBLIC_APP_URL') ?? 'https://omnexia.eu'
 
 const supabase = createClient(supabaseUrl, serviceKey)
 
+type EmailLocale = 'en' | 'fr' | 'de' | 'es' | 'it' | 'nl'
+const overdueStrings: Record<EmailLocale, {
+  subject: (client: string, currency: string, amount: string) => string
+  heading: string
+  body: (client: string, days: number) => string
+  outstandingAmount: string
+  action: (biz: string) => string
+  button: string
+  footer: string
+}> = {
+  en: {
+    subject: (client, currency, amount) => `Invoice overdue: ${client} — ${currency} ${amount}`,
+    heading: 'Invoice overdue — action required',
+    body: (client, days) => `An invoice for <strong>${client}</strong> is <strong>${days} day${days !== 1 ? 's' : ''} overdue</strong>.`,
+    outstandingAmount: 'Outstanding amount',
+    action: (biz) => `Log in to <strong>${biz}</strong>'s Omnexia workspace to follow up with the client or mark the invoice as paid.`,
+    button: 'View invoice →',
+    footer: 'Omnexia — Business OS for European SMBs',
+  },
+  fr: {
+    subject: (client, currency, amount) => `Facture en retard : ${client} — ${currency} ${amount}`,
+    heading: 'Facture en retard — action requise',
+    body: (client, days) => `Une facture pour <strong>${client}</strong> est en retard de <strong>${days} jour${days !== 1 ? 's' : ''}</strong>.`,
+    outstandingAmount: 'Montant dû',
+    action: (biz) => `Connectez-vous à l'espace Omnexia de <strong>${biz}</strong> pour contacter le client ou marquer la facture comme payée.`,
+    button: 'Voir la facture →',
+    footer: 'Omnexia — OS métier pour les PME européennes',
+  },
+  de: {
+    subject: (client, currency, amount) => `Rechnung überfällig: ${client} — ${currency} ${amount}`,
+    heading: 'Rechnung überfällig — Handlung erforderlich',
+    body: (client, days) => `Eine Rechnung für <strong>${client}</strong> ist <strong>${days} Tag${days !== 1 ? 'e' : ''} überfällig</strong>.`,
+    outstandingAmount: 'Ausstehender Betrag',
+    action: (biz) => `Melden Sie sich beim Omnexia-Workspace von <strong>${biz}</strong> an, um den Kunden zu kontaktieren oder die Rechnung als bezahlt zu markieren.`,
+    button: 'Rechnung ansehen →',
+    footer: 'Omnexia — Business OS für europäische KMU',
+  },
+  es: {
+    subject: (client, currency, amount) => `Factura vencida: ${client} — ${currency} ${amount}`,
+    heading: 'Factura vencida — acción requerida',
+    body: (client, days) => `Una factura para <strong>${client}</strong> lleva <strong>${days} día${days !== 1 ? 's' : ''} de retraso</strong>.`,
+    outstandingAmount: 'Monto pendiente',
+    action: (biz) => `Inicia sesión en el espacio de trabajo Omnexia de <strong>${biz}</strong> para hacer seguimiento al cliente o marcar la factura como pagada.`,
+    button: 'Ver factura →',
+    footer: 'Omnexia — OS empresarial para PYME europeas',
+  },
+  it: {
+    subject: (client, currency, amount) => `Fattura scaduta: ${client} — ${currency} ${amount}`,
+    heading: 'Fattura scaduta — azione richiesta',
+    body: (client, days) => `Una fattura per <strong>${client}</strong> è scaduta da <strong>${days} giorno${days !== 1 ? 'i' : ''}</strong>.`,
+    outstandingAmount: 'Importo in sospeso',
+    action: (biz) => `Accedi allo spazio di lavoro Omnexia di <strong>${biz}</strong> per contattare il cliente o contrassegnare la fattura come pagata.`,
+    button: 'Visualizza fattura →',
+    footer: 'Omnexia — OS aziendale per le PMI europee',
+  },
+  nl: {
+    subject: (client, currency, amount) => `Factuur achterstallig: ${client} — ${currency} ${amount}`,
+    heading: 'Factuur achterstallig — actie vereist',
+    body: (client, days) => `Een factuur voor <strong>${client}</strong> is <strong>${days} dag${days !== 1 ? 'en' : ''} achterstallig</strong>.`,
+    outstandingAmount: 'Openstaand bedrag',
+    action: (biz) => `Log in op de Omnexia-werkruimte van <strong>${biz}</strong> om contact op te nemen met de klant of de factuur als betaald te markeren.`,
+    button: 'Factuur bekijken →',
+    footer: 'Omnexia — Business OS voor Europees MKB',
+  },
+}
+
+function getOverdueStrings(locale: string) {
+  const supported: EmailLocale[] = ['en', 'fr', 'de', 'es', 'it', 'nl']
+  const l = locale as EmailLocale
+  return overdueStrings[supported.includes(l) ? l : 'en']
+}
+
 function invoiceOverdueHtml(params: {
   businessName: string
   clientName: string
@@ -21,9 +93,9 @@ function invoiceOverdueHtml(params: {
   currency: string
   daysOverdue: number
   invoiceUrl: string
+  locale: string
 }): string {
-  const htmlAmount = params.amount
-  const approved = true
+  const s = getOverdueStrings(params.locale)
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -33,23 +105,23 @@ function invoiceOverdueHtml(params: {
       <span style="color:#fff;font-size:20px;font-weight:700;letter-spacing:-0.02em">Omnexia</span>
     </div>
     <div style="padding:32px">
-      <h1 style="font-size:20px;font-weight:700;color:#111;margin:0 0 12px">Invoice overdue — action required</h1>
+      <h1 style="font-size:20px;font-weight:700;color:#111;margin:0 0 12px">${s.heading}</h1>
       <p style="font-size:14px;color:#555;line-height:1.6;margin:0 0 8px">
-        An invoice for <strong>${params.clientName}</strong> is <strong>${params.daysOverdue} day${params.daysOverdue !== 1 ? 's' : ''} overdue</strong>.
+        ${s.body(params.clientName, params.daysOverdue)}
       </p>
       <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;padding:16px 20px;margin:16px 0">
-        <div style="font-size:13px;color:#92400E;font-weight:500">Outstanding amount</div>
-        <div style="font-size:24px;font-weight:700;color:#92400E;margin-top:4px">${params.currency}${htmlAmount}</div>
+        <div style="font-size:13px;color:#92400E;font-weight:500">${s.outstandingAmount}</div>
+        <div style="font-size:24px;font-weight:700;color:#92400E;margin-top:4px">${params.currency} ${params.amount}</div>
       </div>
       <p style="font-size:14px;color:#555;line-height:1.6;margin:0 0 24px">
-        Log in to <strong>${params.businessName}</strong>'s Omnexia workspace to follow up with the client or mark the invoice as paid.
+        ${s.action(params.businessName)}
       </p>
       <a href="${params.invoiceUrl}" style="display:inline-block;background:#2563EB;color:#fff;text-decoration:none;padding:12px 28px;border-radius:8px;font-size:14px;font-weight:600">
-        View invoice →
+        ${s.button}
       </a>
     </div>
     <div style="padding:16px 32px;border-top:1px solid #eee;text-align:center">
-      <span style="font-size:11px;color:#bbb">Omnexia — Business OS for European SMBs</span>
+      <span style="font-size:11px;color:#bbb">${s.footer}</span>
     </div>
   </div>
 </body>
@@ -83,7 +155,7 @@ Deno.serve(async () => {
     // Fetch overdue unpaid invoices with business info
     const { data: invoices, error } = await supabase
       .from('invoices')
-      .select('id, business_id, client_name, total, currency, due_date, businesses(id, name)')
+      .select('id, business_id, client_name, total, currency, due_date, businesses(id, name, locale)')
       .eq('status', 'unpaid')
       .lt('due_date', today)
       .not('due_date', 'is', null)
@@ -97,7 +169,7 @@ Deno.serve(async () => {
 
     for (const invoice of invoices ?? []) {
       try {
-        const biz = invoice.businesses as unknown as { id: string; name: string } | null
+        const biz = invoice.businesses as unknown as { id: string; name: string; locale?: string } | null
         if (!biz) continue
 
         const dueDate = new Date(invoice.due_date)
@@ -134,17 +206,22 @@ Deno.serve(async () => {
 
           // Send email if enabled
           if (emailEnabled && admin.email) {
+            const locale = biz.locale ?? 'en'
+            const os = getOverdueStrings(locale)
+            const currency = invoice.currency ?? 'EUR'
+            const amount = Number(invoice.total).toFixed(2)
             const html = invoiceOverdueHtml({
               businessName: biz.name,
               clientName: invoice.client_name,
-              amount: Number(invoice.total).toFixed(2),
-              currency: invoice.currency ?? 'EUR',
+              amount,
+              currency,
               daysOverdue,
               invoiceUrl,
+              locale,
             })
             await sendResendEmail(
               admin.email,
-              `Invoice overdue: ${invoice.client_name} — ${invoice.currency ?? 'EUR'} ${Number(invoice.total).toFixed(2)}`,
+              os.subject(invoice.client_name, currency, amount),
               html,
             )
           }

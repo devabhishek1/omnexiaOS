@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   // Email the admin/owner of the business
   try {
     const { data: emp } = await admin.from('employees').select('full_name').eq('id', employeeId).single()
-    const { data: biz } = await admin.from('businesses').select('name').eq('id', businessId).single()
+    const { data: biz } = await admin.from('businesses').select('name, locale').eq('id', businessId).single()
     const { data: admins } = await admin
       .from('users')
       .select('email')
@@ -39,20 +39,26 @@ export async function POST(request: Request) {
 
     const dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL}/planning`
     const resend = getResend()
+    const locale = biz?.locale ?? 'en'
+    const { getEmailStrings } = await import('@/lib/resend/email-i18n')
+    const s = getEmailStrings(locale)
+    const empName = emp?.full_name ?? 'An employee'
+    const bizName = biz?.name ?? 'your company'
 
     for (const adminUser of admins ?? []) {
       if (!adminUser.email) continue
       await resend.emails.send({
         from: 'Omnexia <notifications@omnexia.eu>',
         to: adminUser.email,
-        subject: `${emp?.full_name ?? 'An employee'} requested time off`,
+        subject: s.timeOffRequestSubject(empName),
         html: timeOffRequestTemplate({
-          employeeName: emp?.full_name ?? 'An employee',
+          employeeName: empName,
           startDate,
           endDate,
           reason: reason || null,
-          businessName: biz?.name ?? 'your company',
+          businessName: bizName,
           dashboardUrl,
+          locale,
         }),
       })
     }
@@ -99,18 +105,22 @@ export async function PATCH(request: Request) {
 
   if (emp) {
     // Get business name
-    const { data: biz } = await admin.from('businesses').select('name').eq('id', emp.business_id).single()
+    const { data: biz } = await admin.from('businesses').select('name, locale').eq('id', emp.business_id).single()
     const businessName = biz?.name ?? 'your company'
+    const locale = biz?.locale ?? 'en'
 
     // Send email to employee if they have an email
     if (emp.email) {
       try {
         const resend = getResend()
         const dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL}/planning`
+        const { getEmailStrings } = await import('@/lib/resend/email-i18n')
+        const s = getEmailStrings(locale)
+        const approved = status === 'approved'
         await resend.emails.send({
           from: 'Omnexia <notifications@omnexia.eu>',
           to: emp.email,
-          subject: `Your time-off request has been ${status}`,
+          subject: s.timeOffResponseSubject(approved),
           html: timeOffResponseTemplate({
             employeeName: emp.full_name,
             status: status as 'approved' | 'rejected',
@@ -118,6 +128,7 @@ export async function PATCH(request: Request) {
             endDate: updated.end_date,
             businessName,
             dashboardUrl,
+            locale,
           }),
         })
       } catch (e) {

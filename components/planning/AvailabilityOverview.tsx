@@ -24,18 +24,20 @@ function shiftHours(s: Shift): number {
 }
 
 export default function AvailabilityOverview({ employees, shifts, timeOff, week }: Props) {
+  const t = useTranslations('planning')
   const weekStart = startOfWeek(week, { weekStartsOn: 1 })
   const weekDays = Array.from({ length: 7 }, (_, i) => format(addDays(weekStart, i), 'yyyy-MM-dd'))
+  const DAY_LABELS = [t('monday'), t('tuesday'), t('wednesday'), t('thursday'), t('friday'), t('saturday'), t('sunday')]
 
   if (employees.length === 0) return null
 
   return (
     <div style={{ backgroundColor: 'var(--bg-surface)', borderRadius: '12px', border: '1px solid var(--border)', padding: '20px 24px' }}>
-      <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px' }}>Team Availability This Week</p>
+      <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px' }}>{t('teamAvailability')}</p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {employees.map(emp => {
           const days = weekDays.map(date => {
-            const onLeave = timeOff.some(t => t.employee_id === emp.id && t.status === 'approved' && date >= t.start_date && date <= t.end_date)
+            const onLeave = timeOff.some(to => to.employee_id === emp.id && to.status === 'approved' && date >= to.start_date && date <= to.end_date)
             if (onLeave) return 'leave'
             const shift = shifts.find(s => s.employee_id === emp.id && s.date === date)
             if (!shift) return 'off'
@@ -53,7 +55,7 @@ export default function AvailabilityOverview({ employees, shifts, timeOff, week 
                 {days.map((status, i) => (
                   <div
                     key={i}
-                    title={['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i]}
+                    title={DAY_LABELS[i]}
                     style={{
                       flex: 1,
                       borderRadius: '3px',
@@ -68,9 +70,9 @@ export default function AvailabilityOverview({ employees, shifts, timeOff, week 
                 ))}
               </div>
               <div style={{ display: 'flex', gap: '8px', fontSize: '11px', color: 'var(--text-muted)', flexShrink: 0 }}>
-                <span style={{ color: '#22C55E' }}>{full}d</span>
-                {partial > 0 && <span style={{ color: '#F59E0B' }}>{partial} part</span>}
-                {leave > 0 && <span>🏖 {leave}d leave</span>}
+                <span style={{ color: '#22C55E' }}>{t('daysCount', { count: full })}</span>
+                {partial > 0 && <span style={{ color: '#F59E0B' }}>{t('partialCount', { count: partial })}</span>}
+                {leave > 0 && <span>🏖 {t('leaveDays', { count: leave })}</span>}
               </div>
             </div>
           )
@@ -78,9 +80,9 @@ export default function AvailabilityOverview({ employees, shifts, timeOff, week 
       </div>
       {/* Legend */}
       <div style={{ display: 'flex', gap: '16px', marginTop: '14px', fontSize: '11px', color: 'var(--text-muted)' }}>
-        {[['#22C55E', 'Full shift (4h+)'], ['#F59E0B', 'Partial (<4h)'], ['#FEF3C7', 'On leave'], ['var(--bg-elevated)', 'Off']].map(([color, label]) => (
-          <div key={label as string} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-            <div style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: color as string, border: color === 'var(--bg-elevated)' ? '1px solid var(--border)' : 'none' }} />
+        {([['#22C55E', t('fullShift')], ['#F59E0B', t('partialShift')], ['#FEF3C7', t('onLeave')], ['var(--bg-elevated)', t('off')]] as [string, string][]).map(([color, label]) => (
+          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <div style={{ width: '12px', height: '12px', borderRadius: '3px', backgroundColor: color, border: color === 'var(--bg-elevated)' ? '1px solid var(--border)' : 'none' }} />
             {label}
           </div>
         ))}

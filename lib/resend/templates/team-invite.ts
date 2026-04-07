@@ -1,8 +1,12 @@
+import { getEmailStrings } from '@/lib/resend/email-i18n'
+
 export function teamInviteTemplate(params: {
   businessName: string
   inviterName: string
   inviteUrl: string
+  locale?: string
 }): string {
+  const s = getEmailStrings(params.locale)
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -12,19 +16,19 @@ export function teamInviteTemplate(params: {
       <span style="color:#fff;font-size:20px;font-weight:700;letter-spacing:-0.02em">Omnexia</span>
     </div>
     <div style="padding:32px">
-      <h1 style="font-size:20px;font-weight:700;color:#111;margin:0 0 12px">You've been invited to join ${params.businessName}</h1>
+      <h1 style="font-size:20px;font-weight:700;color:#111;margin:0 0 12px">${s.inviteHeading(params.businessName)}</h1>
       <p style="font-size:14px;color:#555;line-height:1.6;margin:0 0 24px">
-        <strong>${params.inviterName}</strong> has invited you to collaborate on <strong>${params.businessName}</strong>'s Omnexia workspace — your business OS for communications, finance, planning, and team management.
+        ${s.inviteBody(params.inviterName, params.businessName)}
       </p>
       <a href="${params.inviteUrl}" style="display:inline-block;background:#2563EB;color:#fff;text-decoration:none;padding:12px 28px;border-radius:8px;font-size:14px;font-weight:600">
-        Accept invitation →
+        ${s.inviteButton}
       </a>
       <p style="font-size:12px;color:#999;margin:24px 0 0">
-        This invitation link expires in 7 days. If you didn't expect this email, you can safely ignore it.
+        ${s.inviteFooter}
       </p>
     </div>
     <div style="padding:16px 32px;border-top:1px solid #eee;text-align:center">
-      <span style="font-size:11px;color:#bbb">Omnexia — Business OS for European SMBs</span>
+      <span style="font-size:11px;color:#bbb">${s.footerText}</span>
     </div>
   </div>
 </body>

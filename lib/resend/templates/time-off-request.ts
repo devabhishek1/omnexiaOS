@@ -1,3 +1,5 @@
+import { getEmailStrings } from '@/lib/resend/email-i18n'
+
 export function timeOffRequestTemplate(params: {
   employeeName: string
   startDate: string
@@ -5,7 +7,9 @@ export function timeOffRequestTemplate(params: {
   reason: string | null
   businessName: string
   dashboardUrl: string
+  locale?: string
 }): string {
+  const s = getEmailStrings(params.locale)
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -16,22 +20,22 @@ export function timeOffRequestTemplate(params: {
     </div>
     <div style="padding:32px">
       <h1 style="font-size:20px;font-weight:700;color:#111;margin:0 0 12px">
-        New time-off request
+        ${s.timeOffRequestHeading}
       </h1>
       <p style="font-size:14px;color:#555;line-height:1.6;margin:0 0 16px">
-        <strong>${params.employeeName}</strong> has submitted a time-off request for <strong>${params.businessName}</strong>.
+        ${s.timeOffRequestBody(params.employeeName, params.businessName)}
       </p>
       <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;padding:16px 20px;margin:16px 0">
-        <div style="font-size:13px;color:#2563EB;font-weight:500">Period requested</div>
+        <div style="font-size:13px;color:#2563EB;font-weight:500">${s.periodRequested}</div>
         <div style="font-size:16px;font-weight:700;color:#1D4ED8;margin-top:4px">${params.startDate} → ${params.endDate}</div>
-        ${params.reason ? `<div style="font-size:13px;color:#3B82F6;margin-top:8px">Reason: ${params.reason}</div>` : ''}
+        ${params.reason ? `<div style="font-size:13px;color:#3B82F6;margin-top:8px">${s.reason}: ${params.reason}</div>` : ''}
       </div>
       <a href="${params.dashboardUrl}" style="display:inline-block;background:#2563EB;color:#fff;text-decoration:none;padding:12px 28px;border-radius:8px;font-size:14px;font-weight:600">
-        Review in Omnexia →
+        ${s.reviewButton}
       </a>
     </div>
     <div style="padding:16px 32px;border-top:1px solid #eee;text-align:center">
-      <span style="font-size:11px;color:#bbb">Omnexia — Business OS for European SMBs</span>
+      <span style="font-size:11px;color:#bbb">${s.footerText}</span>
     </div>
   </div>
 </body>

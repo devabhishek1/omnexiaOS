@@ -54,24 +54,24 @@ export default function AccountTab() {
     await supabase.from('users').update({ locale }).eq('id', userId)
     if (businessId) await supabase.from('businesses').update({ locale }).eq('id', businessId)
     setSavingLocale(false)
-    toast.success('Language updated. Regenerating AI digest…')
+    toast.success(t('languageUpdated'))
     router.refresh()
     // Regenerate digest in the new language (fire-and-forget)
     fetch('/api/mistral/digest', { method: 'POST' })
       .then(res => res.json())
-      .then(() => toast.success('AI digest regenerated in new language'))
+      .then(() => toast.success(t('digestRegenerated')))
       .catch(() => {/* silent — non-critical */})
   }
 
   async function handleUpdatePassword(e: React.FormEvent) {
     e.preventDefault()
-    if (newPw !== confirmPw) { toast.error('Passwords do not match'); return }
-    if (newPw.length < 8) { toast.error('Password must be at least 8 characters'); return }
+    if (newPw !== confirmPw) { toast.error(t('passwordsDoNotMatch')); return }
+    if (newPw.length < 8) { toast.error(t('passwordTooShort')); return }
     setSavingPw(true)
     const { error } = await supabase.auth.updateUser({ password: newPw })
     setSavingPw(false)
     if (error) { toast.error(error.message); return }
-    toast.success('Password updated')
+    toast.success(t('passwordUpdated'))
     setCurrentPw(''); setNewPw(''); setConfirmPw('')
   }
 
@@ -88,7 +88,7 @@ export default function AccountTab() {
 
   async function handleDeleteAccount() {
     if (deleteConfirm !== 'DELETE') return
-    toast.info('Account deletion requested. You will receive a confirmation email.')
+    toast.info(t('accountDeletionRequested'))
     setShowDeleteModal(false)
   }
 
@@ -119,7 +119,7 @@ export default function AccountTab() {
         <form onSubmit={handleUpdatePassword} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <div>
             <label style={labelStyle}>{t('newPassword')}</label>
-            <input type="password" style={inputStyle} value={newPw} onChange={e => setNewPw(e.target.value)} minLength={8} required placeholder="Min. 8 characters" />
+            <input type="password" style={inputStyle} value={newPw} onChange={e => setNewPw(e.target.value)} minLength={8} required placeholder={t('minPasswordLength')} />
           </div>
           <div>
             <label style={labelStyle}>{t('confirmPassword')}</label>
@@ -154,18 +154,18 @@ export default function AccountTab() {
 
       {/* Data & Privacy */}
       <section style={sectionStyle}>
-        <h2 style={sectionTitleStyle}>Data & Privacy</h2>
+        <h2 style={sectionTitleStyle}>{t('dataPrivacy')}</h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <div>
             <button onClick={handleDownloadData} style={secondaryBtnStyle}>{t('downloadData')}</button>
             <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-              Export all your business data as a JSON file.
+              {t('exportDataHint')}
             </p>
           </div>
           <div>
             <button onClick={() => setShowDeleteModal(true)} style={dangerBtnStyle}>{t('deleteAccount')}</button>
             <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-              30-day grace period before permanent deletion.
+              {t('deleteGracePeriod')}
             </p>
           </div>
         </div>
@@ -175,15 +175,15 @@ export default function AccountTab() {
       {showDeleteModal && (
         <div style={overlayStyle}>
           <div style={modalStyle}>
-            <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px' }}>Delete account</h3>
+            <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px' }}>{t('deleteAccountTitle')}</h3>
             <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
-              This will permanently delete your account and all business data after a 30-day grace period. Type <strong>DELETE</strong> to confirm.
+              {t('deleteAccountModalDesc')}
             </p>
             <input
               style={{ ...inputStyle, marginBottom: '14px' }}
               value={deleteConfirm}
               onChange={e => setDeleteConfirm(e.target.value)}
-              placeholder="Type DELETE"
+              placeholder={t('typeDeletePlaceholder')}
             />
             <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
               <button onClick={() => setShowDeleteModal(false)} style={secondaryBtnStyle}>{tc('cancel')}</button>

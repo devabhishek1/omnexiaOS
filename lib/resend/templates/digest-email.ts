@@ -1,11 +1,14 @@
+import { getEmailStrings } from '@/lib/resend/email-i18n'
+
 export function digestEmailTemplate(params: {
   businessName: string
   date: string
   content: string
   messageCount: number
   dashboardUrl: string
+  locale?: string
 }): string {
-  // Convert newlines to <br> for HTML display
+  const s = getEmailStrings(params.locale)
   const htmlContent = params.content.replace(/\n/g, '<br>')
   return `<!DOCTYPE html>
 <html>
@@ -20,17 +23,17 @@ export function digestEmailTemplate(params: {
         <span style="background:#EEF2FF;color:#6366F1;font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;letter-spacing:0.04em">✦ AI DIGEST</span>
         <span style="font-size:12px;color:#999">${params.date}</span>
       </div>
-      <h1 style="font-size:20px;font-weight:700;color:#111;margin:0 0 12px">Good morning, ${params.businessName}</h1>
-      <p style="font-size:13px;color:#777;margin:0 0 20px">${params.messageCount} message${params.messageCount !== 1 ? 's' : ''} in the last 24 hours</p>
+      <h1 style="font-size:20px;font-weight:700;color:#111;margin:0 0 12px">${s.digestGreeting(params.businessName)}</h1>
+      <p style="font-size:13px;color:#777;margin:0 0 20px">${s.digestMessageCount(params.messageCount)}</p>
       <div style="font-size:14px;color:#333;line-height:1.7;margin:0 0 24px;padding:20px;background:#F8F8F5;border-radius:8px;border-left:3px solid #6366F1">
         ${htmlContent}
       </div>
       <a href="${params.dashboardUrl}" style="display:inline-block;background:#2563EB;color:#fff;text-decoration:none;padding:12px 28px;border-radius:8px;font-size:14px;font-weight:600">
-        Open dashboard →
+        ${s.openDashboard}
       </a>
     </div>
     <div style="padding:16px 32px;border-top:1px solid #eee;text-align:center">
-      <span style="font-size:11px;color:#bbb">Omnexia — Business OS for European SMBs</span>
+      <span style="font-size:11px;color:#bbb">${s.footerText}</span>
     </div>
   </div>
 </body>

@@ -20,6 +20,64 @@ const LANG_MAP: Record<string, string> = {
   fr: 'French', en: 'English', de: 'German', es: 'Spanish', it: 'Italian', nl: 'Dutch',
 }
 
+type EmailLocale = 'en' | 'fr' | 'de' | 'es' | 'it' | 'nl'
+const digestStrings: Record<EmailLocale, {
+  subject: (date: string) => string
+  greeting: (biz: string) => string
+  messageCount: (n: number) => string
+  openDashboard: string
+  footer: string
+}> = {
+  en: {
+    subject: (date) => `Your Omnexia morning digest — ${date}`,
+    greeting: (biz) => `Good morning, ${biz}`,
+    messageCount: (n) => `${n} message${n !== 1 ? 's' : ''} in the last 24 hours`,
+    openDashboard: 'Open dashboard →',
+    footer: 'Omnexia — Business OS for European SMBs',
+  },
+  fr: {
+    subject: (date) => `Votre digest matinal Omnexia — ${date}`,
+    greeting: (biz) => `Bonjour, ${biz}`,
+    messageCount: (n) => `${n} message${n !== 1 ? 's' : ''} au cours des dernières 24 heures`,
+    openDashboard: 'Ouvrir le tableau de bord →',
+    footer: 'Omnexia — OS métier pour les PME européennes',
+  },
+  de: {
+    subject: (date) => `Ihr Omnexia-Morgendigest — ${date}`,
+    greeting: (biz) => `Guten Morgen, ${biz}`,
+    messageCount: (n) => `${n} Nachricht${n !== 1 ? 'en' : ''} in den letzten 24 Stunden`,
+    openDashboard: 'Dashboard öffnen →',
+    footer: 'Omnexia — Business OS für europäische KMU',
+  },
+  es: {
+    subject: (date) => `Tu resumen matutino de Omnexia — ${date}`,
+    greeting: (biz) => `Buenos días, ${biz}`,
+    messageCount: (n) => `${n} mensaje${n !== 1 ? 's' : ''} en las últimas 24 horas`,
+    openDashboard: 'Abrir panel →',
+    footer: 'Omnexia — OS empresarial para PYME europeas',
+  },
+  it: {
+    subject: (date) => `Il tuo digest mattutino Omnexia — ${date}`,
+    greeting: (biz) => `Buongiorno, ${biz}`,
+    messageCount: (n) => `${n} messagg${n !== 1 ? 'i' : 'io'} nelle ultime 24 ore`,
+    openDashboard: 'Apri dashboard →',
+    footer: 'Omnexia — OS aziendale per le PMI europee',
+  },
+  nl: {
+    subject: (date) => `Jouw Omnexia ochtenddigest — ${date}`,
+    greeting: (biz) => `Goedemorgen, ${biz}`,
+    messageCount: (n) => `${n} bericht${n !== 1 ? 'en' : ''} in de afgelopen 24 uur`,
+    openDashboard: 'Dashboard openen →',
+    footer: 'Omnexia — Business OS voor Europees MKB',
+  },
+}
+
+function getDigestStrings(locale: string) {
+  const supported: EmailLocale[] = ['en', 'fr', 'de', 'es', 'it', 'nl']
+  const l = locale as EmailLocale
+  return digestStrings[supported.includes(l) ? l : 'en']
+}
+
 async function callMistral(prompt: string): Promise<string> {
   const res = await fetch('https://api.mistral.ai/v1/chat/completions', {
     method: 'POST',
@@ -44,7 +102,9 @@ function digestEmailHtml(params: {
   content: string
   messageCount: number
   dashboardUrl: string
+  locale: string
 }): string {
+  const s = getDigestStrings(params.locale)
   const htmlContent = params.content.replace(/\n/g, '<br>')
   return `<!DOCTYPE html>
 <html>
@@ -59,17 +119,17 @@ function digestEmailHtml(params: {
         <span style="background:#EEF2FF;color:#6366F1;font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;letter-spacing:0.04em">✦ AI DIGEST</span>
         <span style="font-size:12px;color:#999;margin-left:8px">${params.date}</span>
       </div>
-      <h1 style="font-size:20px;font-weight:700;color:#111;margin:0 0 12px">Good morning, ${params.businessName}</h1>
-      <p style="font-size:13px;color:#777;margin:0 0 20px">${params.messageCount} message${params.messageCount !== 1 ? 's' : ''} in the last 24 hours</p>
+      <h1 style="font-size:20px;font-weight:700;color:#111;margin:0 0 12px">${s.greeting(params.businessName)}</h1>
+      <p style="font-size:13px;color:#777;margin:0 0 20px">${s.messageCount(params.messageCount)}</p>
       <div style="font-size:14px;color:#333;line-height:1.7;margin:0 0 24px;padding:20px;background:#F8F8F5;border-radius:8px;border-left:3px solid #6366F1">
         ${htmlContent}
       </div>
       <a href="${params.dashboardUrl}" style="display:inline-block;background:#2563EB;color:#fff;text-decoration:none;padding:12px 28px;border-radius:8px;font-size:14px;font-weight:600">
-        Open dashboard →
+        ${s.openDashboard}
       </a>
     </div>
     <div style="padding:16px 32px;border-top:1px solid #eee;text-align:center">
-      <span style="font-size:11px;color:#bbb">Omnexia — Business OS for European SMBs</span>
+      <span style="font-size:11px;color:#bbb">${s.footer}</span>
     </div>
   </div>
 </body>
@@ -172,15 +232,18 @@ Format: Start with the total message count as a plain sentence, then key highlig
           const emailEnabled = prefs.digest_email !== false
 
           if (digestEnabled && emailEnabled && admin.email) {
+            const locale = biz.locale ?? 'en'
+            const ds = getDigestStrings(locale)
             await sendResendEmail(
               admin.email,
-              `Your Omnexia morning digest — ${today}`,
+              ds.subject(today),
               digestEmailHtml({
                 businessName: biz.name,
                 date: today,
                 content,
                 messageCount: (messages ?? []).length,
                 dashboardUrl: `${appUrl}/overview`,
+                locale,
               }),
             )
           }

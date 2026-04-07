@@ -40,12 +40,12 @@ export default function TimeOffPanel({ requests, employees, currentUserId, curre
   const visibleRequests = isAdmin ? requests : myRequests
 
   function getEmployeeName(id: string): string {
-    return employees.find(e => e.id === id)?.full_name ?? 'Unknown'
+    return employees.find(e => e.id === id)?.full_name ?? t('unknown')
   }
 
   async function handleSubmit() {
-    if (!startDate || !endDate || !currentEmployeeId) { setError('Please fill in all fields.'); return }
-    if (endDate < startDate) { setError('End date must be after start date.'); return }
+    if (!startDate || !endDate || !currentEmployeeId) { setError(t('fillAllFields')); return }
+    if (endDate < startDate) { setError(t('endDateAfterStart')); return }
     setError(''); setSubmitting(true)
     const res = await fetch('/api/planning/time-off', {
       method: 'POST',
@@ -57,7 +57,7 @@ export default function TimeOffPanel({ requests, employees, currentUserId, curre
       onRequestsChange([...requests, result.data as TimeOffRequest])
       setStartDate(''); setEndDate(''); setReason('')
     } else {
-      setError(result.error ?? 'Failed to submit request.')
+      setError(result.error ?? t('failedToSubmit'))
     }
     setSubmitting(false)
   }
@@ -108,7 +108,7 @@ export default function TimeOffPanel({ requests, employees, currentUserId, curre
                       {req.reason && <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '4px 0 0' }}>{req.reason}</p>}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '20px', backgroundColor: sc.bg, color: sc.color, textTransform: 'capitalize' }}>{req.status}</span>
+                      <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '20px', backgroundColor: sc.bg, color: sc.color }}>{t(req.status as 'pending' | 'approved' | 'rejected')}</span>
                       {isAdmin && req.status === 'pending' && (
                         <>
                           <button onClick={() => handleReview(req.id, 'approved')} style={{ background: '#DCFCE7', border: 'none', borderRadius: '6px', padding: '4px 6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
@@ -148,7 +148,7 @@ export default function TimeOffPanel({ requests, employees, currentUserId, curre
             </div>
             <div>
               <label style={labelStyle}>{t('reason')}</label>
-              <textarea value={reason} onChange={e => setReason(e.target.value)} rows={3} placeholder="Annual leave, medical, etc." style={{ ...inputStyle, resize: 'vertical' }} />
+              <textarea value={reason} onChange={e => setReason(e.target.value)} rows={3} placeholder={t('reasonPlaceholder')} style={{ ...inputStyle, resize: 'vertical' }} />
             </div>
             {error && <p style={{ fontSize: '12px', color: '#DC2626', margin: 0 }}>{error}</p>}
             <button onClick={handleSubmit} disabled={submitting} style={{ padding: '8px 16px', backgroundColor: submitting ? 'var(--border-strong)' : 'var(--omnexia-accent)', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
@@ -169,7 +169,7 @@ export default function TimeOffPanel({ requests, employees, currentUserId, curre
                           {' – '}
                           {new Date(r.end_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                         </span>
-                        <span style={{ fontSize: '11px', fontWeight: 600, padding: '1px 7px', borderRadius: '20px', backgroundColor: sc.bg, color: sc.color, textTransform: 'capitalize' }}>{r.status}</span>
+                        <span style={{ fontSize: '11px', fontWeight: 600, padding: '1px 7px', borderRadius: '20px', backgroundColor: sc.bg, color: sc.color }}>{t(r.status as 'pending' | 'approved' | 'rejected')}</span>
                       </div>
                     )
                   })}

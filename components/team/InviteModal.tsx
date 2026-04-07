@@ -4,6 +4,13 @@ import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { X } from 'lucide-react'
 
+const MODULE_NAV_KEYS: Record<string, 'communications' | 'finance' | 'planning' | 'team'> = {
+  communications: 'communications',
+  finance: 'finance',
+  planning: 'planning',
+  team: 'team',
+}
+
 const MODULES = ['communications', 'finance', 'planning', 'team'] as const
 type Module = typeof MODULES[number]
 
@@ -24,6 +31,7 @@ const ROLE_DEFAULTS: Record<string, Record<string, boolean>> = {
 export default function InviteModal({ open, onClose, onInvite }: Props) {
   const t = useTranslations('team')
   const tc = useTranslations('common')
+  const tn = useTranslations('nav')
   const [email, setEmail] = useState('')
   const [role, setRole] = useState('employee')
   const [moduleAccess, setModuleAccess] = useState<Record<string, boolean>>(DEFAULT_ACCESS)
@@ -38,14 +46,14 @@ export default function InviteModal({ open, onClose, onInvite }: Props) {
   }
 
   async function handleSend() {
-    if (!email.trim() || !email.includes('@')) { setError('Please enter a valid email address.'); return }
+    if (!email.trim() || !email.includes('@')) { setError(t('invalidEmail')); return }
     setError(''); setSending(true)
     try {
       await onInvite({ email: email.trim(), role, moduleAccess })
       setEmail(''); setRole('employee'); setModuleAccess(DEFAULT_ACCESS)
       onClose()
     } catch (e) {
-      setError('Failed to send invite. Please try again.')
+      setError(t('inviteFailed'))
     } finally {
       setSending(false)
     }
@@ -62,14 +70,14 @@ export default function InviteModal({ open, onClose, onInvite }: Props) {
         <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
             <label style={labelStyle}>{t('inviteEmail')}</label>
-            <input value={email} onChange={e => setEmail(e.target.value)} placeholder="colleague@company.com" type="email" style={inputStyle} />
+            <input value={email} onChange={e => setEmail(e.target.value)} placeholder={t('inviteEmailPlaceholder')} type="email" style={inputStyle} />
           </div>
 
           <div>
             <label style={labelStyle}>{t('role')}</label>
             <select value={role} onChange={e => handleRoleChange(e.target.value)} style={inputStyle}>
-              {['admin', 'manager', 'employee', 'accountant'].map(r => (
-                <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
+              {(['admin', 'manager', 'employee', 'accountant'] as const).map(r => (
+                <option key={r} value={r}>{t(r)}</option>
               ))}
             </select>
           </div>
@@ -79,7 +87,7 @@ export default function InviteModal({ open, onClose, onInvite }: Props) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {MODULES.map(mod => (
                 <label key={mod} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
-                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)', textTransform: 'capitalize' }}>{mod}</span>
+                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{tn(MODULE_NAV_KEYS[mod])}</span>
                   <div
                     onClick={() => setModuleAccess(prev => ({ ...prev, [mod]: !prev[mod] }))}
                     style={{
@@ -101,7 +109,7 @@ export default function InviteModal({ open, onClose, onInvite }: Props) {
           </div>
 
           <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>
-            An invitation email will be sent to this address via Resend.
+            {t('inviteEmailNote')}
           </p>
 
           {error && <p style={{ fontSize: '13px', color: '#DC2626', margin: 0 }}>{error}</p>}

@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   // Get inviter info + business
   const { data: inviterRow } = await admin
     .from('users')
-    .select('full_name, business_id, businesses(name)')
+    .select('full_name, business_id, businesses(name, locale)')
     .eq('id', user.id)
     .single()
 
@@ -26,7 +26,9 @@ export async function POST(request: Request) {
   }
 
   const businessId = inviterRow.business_id
-  const businessName = (inviterRow.businesses as unknown as { name: string } | null)?.name ?? 'your company'
+  const bizInfo = inviterRow.businesses as unknown as { name: string; locale: string | null } | null
+  const businessName = bizInfo?.name ?? 'your company'
+  const businessLocale = bizInfo?.locale ?? 'en'
   const inviterName = inviterRow.full_name ?? user.email ?? 'A team member'
 
   // Insert placeholder employee record (store moduleAccess so it can be applied on accept)
@@ -53,11 +55,13 @@ export async function POST(request: Request) {
 
   try {
     const resend = getResend()
+    const { getEmailStrings } = await import('@/lib/resend/email-i18n')
+    const s = getEmailStrings(businessLocale)
     await resend.emails.send({
       from: 'Omnexia <invites@omnexia.eu>',
       to: email,
-      subject: `You've been invited to join ${businessName} on Omnexia`,
-      html: teamInviteTemplate({ businessName, inviterName, inviteUrl }),
+      subject: s.inviteSubject(businessName),
+      html: teamInviteTemplate({ businessName, inviterName, inviteUrl, locale: businessLocale }),
     })
   } catch (e) {
     console.error('[team/invite] Resend error:', e)
