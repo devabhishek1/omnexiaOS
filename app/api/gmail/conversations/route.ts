@@ -46,6 +46,8 @@ export async function GET() {
     lastMessageAt: row.last_message_at,
     labels: row.labels ?? [],
     assignedTo: row.assigned_to ?? undefined,
+    isArchived: row.is_archived ?? false,
+    folder: row.folder ?? 'inbox',
   }))
 
   return NextResponse.json({ conversations: decrypted })

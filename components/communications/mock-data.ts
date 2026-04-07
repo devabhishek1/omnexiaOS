@@ -30,7 +30,10 @@ export interface Conversation {
   timestamp: string
   lastMessageAt?: string   // ISO string — used for client-side re-sorting
   labels: string[]
-  assignedTo?: string
+  assignedTo?: string      // display name
+  assignedToId?: string    // UUID stored in DB
+  isArchived?: boolean
+  folder?: string
   messages: ThreadMessage[]
   aiSuggestedReply?: string
 }

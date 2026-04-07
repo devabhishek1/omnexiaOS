@@ -125,8 +125,8 @@ export default function EmployeeTable({ employees, users, currentUserId, onEditP
 
                 {/* Access level / permissions badge */}
                 <td style={{ padding: '14px 16px' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: '20px', backgroundColor: rc.bg, color: rc.color, textTransform: 'capitalize' }}>
-                    {role}
+                  <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: '20px', backgroundColor: rc.bg, color: rc.color }}>
+                    {t(role as 'admin' | 'manager' | 'employee' | 'accountant')}
                   </span>
                 </td>
 

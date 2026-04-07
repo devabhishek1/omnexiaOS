@@ -17,6 +17,9 @@ import {
   Paperclip,
   FileText,
   Download,
+  Archive,
+  FolderInput,
+  Check,
 } from 'lucide-react'
 import type { Conversation, ConversationChannel, MessageAttachment, ThreadMessage } from './mock-data'
 
@@ -158,6 +161,7 @@ function ThreadSkeleton() {
 // ---------------------------------------------------------------------------
 
 function ImageLightbox({ src, filename, onClose }: { src: string; filename: string; onClose: () => void }) {
+  const t = useTranslations('communications')
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', handler)
@@ -200,7 +204,7 @@ function ImageLightbox({ src, filename, onClose }: { src: string; filename: stri
               textDecoration: 'none', fontFamily: 'var(--font-dm-sans), sans-serif',
             }}
           >
-            <Download size={13} /> Download
+            <Download size={13} /> {t('download')}
           </a>
           <button
             onClick={onClose}
@@ -229,7 +233,7 @@ function ImageLightbox({ src, filename, onClose }: { src: string; filename: stri
       />
 
       <span style={{ position: 'fixed', bottom: '14px', color: 'rgba(255,255,255,0.3)', fontSize: '11px', pointerEvents: 'none' }}>
-        Click outside or press Esc to close
+        {t('escToClose')}
       </span>
     </div>,
     document.body
@@ -408,6 +412,7 @@ function AIReplyPanel({
   onDismiss: () => void
   onUseDraft: (text: string) => void
 }) {
+  const t = useTranslations('communications')
   const [text, setText] = useState(draft)
 
   return (
@@ -423,22 +428,22 @@ function AIReplyPanel({
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ background: '#EDE9FE', color: '#6366F1', fontSize: '10px', fontWeight: 700, padding: '2px 7px', borderRadius: '20px', border: '1px solid #C4B5FD', letterSpacing: '0.05em' }}>
-            ✦ AI Draft
+            ✦ {t('aiDraft')}
           </span>
-          <span style={{ fontSize: '13px', fontWeight: 600, color: '#4338CA' }}>Suggested reply</span>
+          <span style={{ fontSize: '13px', fontWeight: 600, color: '#4338CA' }}>{t('suggestedReply')}</span>
         </div>
         <div style={{ display: 'flex', gap: '6px' }}>
           <button
             onClick={() => setText(draft)}
             style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', color: '#6366F1', fontSize: '12px', fontWeight: 500, cursor: 'pointer', padding: '4px 8px', borderRadius: '6px', fontFamily: 'var(--font-dm-sans), sans-serif' }}
           >
-            <RefreshCw size={12} /> Regenerate
+            <RefreshCw size={12} /> {t('regenerate')}
           </button>
           <button
             onClick={onDismiss}
             style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', color: '#9CA3AF', fontSize: '12px', fontWeight: 500, cursor: 'pointer', padding: '4px 8px', borderRadius: '6px', fontFamily: 'var(--font-dm-sans), sans-serif' }}
           >
-            <X size={12} /> Dismiss
+            <X size={12} /> {t('dismiss')}
           </button>
         </div>
       </div>
@@ -475,7 +480,7 @@ function AIReplyPanel({
             cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif',
           }}
         >
-          Use this draft →
+          {t('useDraft')}
         </button>
       </div>
     </div>
@@ -486,7 +491,10 @@ function AIReplyPanel({
 // Main ThreadView
 // ---------------------------------------------------------------------------
 
-const TEAM_MEMBERS = ['Unassigned', 'You', 'Marie Dubois', 'Luca Ferrari']
+const LABEL_KEYS = ['labelPriority', 'labelUrgent', 'labelInvoice', 'labelSupport', 'labelLegal', 'labelMine'] as const
+const LABEL_VALUES = ['Priority', 'Urgent', 'Invoice', 'Support', 'Legal', 'Mine'] as const
+
+interface TeamMember { id: string; fullName: string; email: string }
 
 interface ThreadViewProps {
   conversation: Conversation | null
@@ -494,18 +502,42 @@ interface ThreadViewProps {
   priorityOnly: boolean
   businessName: string
   currentUserEmail: string
+  currentUserId: string
+  teamMembers: TeamMember[]
   messagesLoading: boolean
   onDismissAI: (id: string) => void
   onSendReply: (id: string, text: string, files?: File[]) => void
   onMarkUnread: (id: string) => void
+  onAssign: (id: string, memberId: string | null) => void
+  onLabel: (id: string, label: string) => void
+  onArchive: (id: string) => void
+  onDelete: (id: string) => void
+  onMoveToFolder: (id: string, folder: string) => void
 }
 
-export function ThreadView({ conversation, showAIPanel, priorityOnly, businessName, currentUserEmail, messagesLoading, onDismissAI, onSendReply, onMarkUnread }: ThreadViewProps) {
+export function ThreadView({ conversation, showAIPanel, priorityOnly, businessName, currentUserEmail, currentUserId, teamMembers, messagesLoading, onDismissAI, onSendReply, onMarkUnread, onAssign, onLabel, onArchive, onDelete, onMoveToFolder }: ThreadViewProps) {
   const t = useTranslations('communications')
-  const [assignedTo, setAssignedTo] = useState('Unassigned')
+  const tc = useTranslations('common')
   const [showAssignDropdown, setShowAssignDropdown] = useState(false)
+  const [showLabelDropdown, setShowLabelDropdown] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
+  const [showFolderMenu, setShowFolderMenu] = useState(false)
   const [composerText, setComposerText] = useState('')
+
+  const assignRef = useRef<HTMLDivElement>(null)
+  const labelRef = useRef<HTMLDivElement>(null)
+  const moreRef = useRef<HTMLDivElement>(null)
+
+  // Close any open dropdown on outside click
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (assignRef.current && !assignRef.current.contains(e.target as Node)) setShowAssignDropdown(false)
+      if (labelRef.current && !labelRef.current.contains(e.target as Node)) setShowLabelDropdown(false)
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) { setShowMoreMenu(false); setShowFolderMenu(false) }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
 
   // Keep local composer state available for "Use this draft"
   const composerRef = useRef<HTMLTextAreaElement | null>(null)
@@ -531,8 +563,8 @@ export function ThreadView({ conversation, showAIPanel, priorityOnly, businessNa
     return (
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', background: '#F9F9F6' }}>
         <span style={{ fontSize: '36px' }}>⚡</span>
-        <p style={{ fontSize: '15px', fontWeight: 700, color: '#1A1A1A', margin: 0 }}>You're all caught up!</p>
-        <p style={{ fontSize: '13px', color: '#9CA3AF', margin: 0 }}>No priority messages right now 🎉</p>
+        <p style={{ fontSize: '15px', fontWeight: 700, color: '#1A1A1A', margin: 0 }}>{t('caughtUp')}</p>
+        <p style={{ fontSize: '13px', color: '#9CA3AF', margin: 0 }}>{t('noPriorityMessages')} 🎉</p>
       </div>
     )
   }
@@ -577,10 +609,10 @@ export function ThreadView({ conversation, showAIPanel, priorityOnly, businessNa
 
         {/* Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-          {/* Assign to — front and centre, prominent */}
-          <div style={{ position: 'relative' }}>
+          {/* Assign to */}
+          <div ref={assignRef} style={{ position: 'relative' }}>
             <button
-              onClick={() => setShowAssignDropdown(!showAssignDropdown)}
+              onClick={() => { setShowAssignDropdown(!showAssignDropdown); setShowLabelDropdown(false); setShowMoreMenu(false); setShowFolderMenu(false) }}
               style={{
                 display: 'flex', alignItems: 'center', gap: '6px',
                 padding: '6px 12px',
@@ -594,23 +626,58 @@ export function ThreadView({ conversation, showAIPanel, priorityOnly, businessNa
               }}
             >
               <UserCircle size={14} />
-              {assignedTo === 'Unassigned' ? 'Assign to…' : assignedTo}
+              {conversation.assignedTo ? conversation.assignedTo : t('assignTo')}
             </button>
             {showAssignDropdown && (
-              <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '4px', background: '#FFF', border: '1px solid #E8E8E2', borderRadius: '10px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 50, minWidth: '160px', overflow: 'hidden' }}>
-                {TEAM_MEMBERS.map((m) => (
-                  <button key={m} onClick={() => { setAssignedTo(m); setShowAssignDropdown(false) }} style={{ display: 'block', width: '100%', padding: '9px 14px', textAlign: 'left', background: m === assignedTo ? '#EEF3FE' : '#FFF', color: m === assignedTo ? '#2563EB' : '#1A1A1A', fontSize: '13px', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif', fontWeight: m === assignedTo ? 600 : 400 }}>
-                    {m}
-                  </button>
-                ))}
+              <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '4px', background: '#FFF', border: '1px solid #E8E8E2', borderRadius: '10px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 50, minWidth: '180px', overflow: 'hidden' }}>
+                {/* Unassigned option */}
+                <button
+                  onClick={() => { onAssign(conversation.id, null); setShowAssignDropdown(false) }}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '9px 14px', textAlign: 'left', background: !conversation.assignedToId ? '#EEF3FE' : '#FFF', color: !conversation.assignedToId ? '#2563EB' : '#6B6B6B', fontSize: '13px', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif', fontWeight: !conversation.assignedToId ? 600 : 400 }}
+                >
+                  {t('unassigned')}
+                  {!conversation.assignedToId && <Check size={12} />}
+                </button>
+                {/* Real team members */}
+                {teamMembers.map((m) => {
+                  const isMe = m.id === currentUserId
+                  const label = isMe ? t('youName', { name: m.fullName }) : m.fullName
+                  const isSelected = conversation.assignedToId === m.id
+                  return (
+                    <button key={m.id} onClick={() => { onAssign(conversation.id, m.id); setShowAssignDropdown(false) }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '9px 14px', textAlign: 'left', background: isSelected ? '#EEF3FE' : '#FFF', color: isSelected ? '#2563EB' : '#1A1A1A', fontSize: '13px', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif', fontWeight: isSelected ? 600 : 400 }}>
+                      {label}
+                      {isSelected && <Check size={12} />}
+                    </button>
+                  )
+                })}
               </div>
             )}
           </div>
 
           {/* Label */}
-          <button style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 10px', border: '1px solid #E8E8E2', borderRadius: '6px', background: '#F9F9F6', fontSize: '12px', color: '#6B6B6B', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif' }}>
-            <Tag size={13} /> Label
-          </button>
+          <div ref={labelRef} style={{ position: 'relative' }}>
+            <button
+              onClick={() => { setShowLabelDropdown(!showLabelDropdown); setShowAssignDropdown(false); setShowMoreMenu(false); setShowFolderMenu(false) }}
+              style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 10px', border: '1px solid #E8E8E2', borderRadius: '6px', background: conversation.labels?.length ? '#EEF3FE' : '#F9F9F6', fontSize: '12px', color: conversation.labels?.length ? '#2563EB' : '#6B6B6B', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif' }}
+            >
+              <Tag size={13} />
+              {conversation.labels?.length ? conversation.labels.join(', ') : t('label')}
+            </button>
+            {showLabelDropdown && (
+              <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '4px', background: '#FFF', border: '1px solid #E8E8E2', borderRadius: '10px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 50, minWidth: '160px', overflow: 'hidden' }}>
+                {LABEL_KEYS.map((key, i) => {
+                  const value = LABEL_VALUES[i]
+                  const active = conversation.labels?.includes(value)
+                  return (
+                    <button key={value} onClick={() => { onLabel(conversation.id, value) }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '9px 14px', textAlign: 'left', background: active ? '#EEF3FE' : '#FFF', color: active ? '#2563EB' : '#1A1A1A', fontSize: '13px', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif', fontWeight: active ? 600 : 400 }}>
+                      {t(key)}
+                      {active && <Check size={12} />}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
 
           {/* Mark read/unread */}
           <button
@@ -618,24 +685,47 @@ export function ThreadView({ conversation, showAIPanel, priorityOnly, businessNa
             style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 10px', border: '1px solid #E8E8E2', borderRadius: '6px', background: '#F9F9F6', fontSize: '12px', color: '#6B6B6B', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif' }}
           >
             {isUnread ? <MailOpen size={13} /> : <Mail size={13} />}
-            {isUnread ? 'Read' : 'Unread'}
+            {isUnread ? t('read') : t('unread')}
           </button>
 
           {/* More menu */}
-          <div style={{ position: 'relative' }}>
+          <div ref={moreRef} style={{ position: 'relative' }}>
             <button
-              onClick={() => setShowMoreMenu(!showMoreMenu)}
+              onClick={() => { setShowMoreMenu(!showMoreMenu); setShowAssignDropdown(false); setShowLabelDropdown(false); setShowFolderMenu(false) }}
               style={{ display: 'flex', alignItems: 'center', padding: '5px 8px', border: '1px solid #E8E8E2', borderRadius: '6px', background: '#F9F9F6', cursor: 'pointer' }}
             >
               <MoreHorizontal size={15} color="#9CA3AF" />
             </button>
             {showMoreMenu && (
-              <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '4px', background: '#FFF', border: '1px solid #E8E8E2', borderRadius: '10px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 50, minWidth: '140px', overflow: 'hidden' }}>
-                {['Archive', 'Move to folder', 'Delete'].map((action) => (
-                  <button key={action} onClick={() => setShowMoreMenu(false)} style={{ display: 'block', width: '100%', padding: '9px 14px', textAlign: 'left', background: '#FFF', color: action === 'Delete' ? '#DC2626' : '#1A1A1A', fontSize: '13px', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif' }}>
-                    {action}
-                  </button>
-                ))}
+              <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '4px', background: '#FFF', border: '1px solid #E8E8E2', borderRadius: '10px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 50, minWidth: '160px', overflow: 'hidden' }}>
+                <button onClick={() => { onArchive(conversation.id); setShowMoreMenu(false) }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '9px 14px', textAlign: 'left', background: '#FFF', color: '#1A1A1A', fontSize: '13px', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif' }}>
+                  <Archive size={13} color="#6B6B6B" /> {t('archive')}
+                </button>
+                {/* Move to folder — click to toggle inline list */}
+                <button
+                  onClick={() => setShowFolderMenu(!showFolderMenu)}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '9px 14px', textAlign: 'left', background: showFolderMenu ? '#F9F9F6' : '#FFF', color: '#1A1A1A', fontSize: '13px', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif', justifyContent: 'space-between' }}
+                >
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><FolderInput size={13} color="#6B6B6B" /> {t('moveToFolder')}</span>
+                  <span style={{ fontSize: '10px', color: '#9CA3AF' }}>{showFolderMenu ? '▾' : '▸'}</span>
+                </button>
+                {showFolderMenu && (
+                  <div style={{ background: '#F9F9F6', borderTop: '1px solid #E8E8E2', borderBottom: '1px solid #E8E8E2' }}>
+                    {[
+                      { value: 'inbox', label: 'Inbox' },
+                      { value: 'later', label: 'Later' },
+                      { value: 'follow-up', label: 'Follow-up' },
+                    ].map((f) => (
+                      <button key={f.value} onClick={() => { onMoveToFolder(conversation.id, f.value); setShowMoreMenu(false); setShowFolderMenu(false) }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '8px 14px 8px 32px', textAlign: 'left', background: conversation.folder === f.value ? '#EEF3FE' : 'transparent', color: conversation.folder === f.value ? '#2563EB' : '#374151', fontSize: '12px', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif', fontWeight: conversation.folder === f.value ? 600 : 400 }}>
+                        {f.label}
+                        {conversation.folder === f.value && <Check size={11} />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <button onClick={() => { if (confirm(t('deleteConfirm'))) { onDelete(conversation.id); setShowMoreMenu(false) } }} style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '9px 14px', textAlign: 'left', background: '#FFF', color: '#DC2626', fontSize: '13px', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif' }}>
+                  <Trash2 size={13} /> {tc('delete')}
+                </button>
               </div>
             )}
           </div>

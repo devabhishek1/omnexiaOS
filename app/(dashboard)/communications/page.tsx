@@ -14,7 +14,12 @@ import type { Conversation } from '@/components/communications/mock-data'
 // ---------------------------------------------------------------------------
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function adaptConversation(row: any, messages: Conversation['messages'] = []): Conversation {
+function adaptConversation(row: any, messages: Conversation['messages'] = [], teamMembers: TeamMember[] = []): Conversation {
+  let assignedToName: string | undefined
+  if (row.assignedTo) {
+    const member = teamMembers.find((m) => m.id === row.assignedTo)
+    assignedToName = member?.fullName ?? row.assignedTo
+  }
   return {
     id: row.id,
     externalId: row.externalId,
@@ -32,10 +37,19 @@ function adaptConversation(row: any, messages: Conversation['messages'] = []): C
       : '',
     lastMessageAt: row.lastMessageAt ?? undefined,
     labels: row.labels ?? [],
-    assignedTo: row.assignedTo,
+    assignedTo: assignedToName,
+    assignedToId: row.assignedTo ?? undefined,
+    isArchived: row.isArchived ?? false,
+    folder: row.folder ?? 'inbox',
     messages,
     aiSuggestedReply: undefined,
   }
+}
+
+interface TeamMember {
+  id: string
+  fullName: string
+  email: string
 }
 
 // ---------------------------------------------------------------------------
@@ -51,6 +65,8 @@ export default function CommunicationsPage() {
   const [messagesLoading, setMessagesLoading] = useState(false)
   const [businessName, setBusinessName] = useState('Your Business')
   const [currentUserEmail, setCurrentUserEmail] = useState('')
+  const [currentUserId, setCurrentUserId] = useState('')
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [dismissedAI, setDismissedAI] = useState<Set<string>>(new Set())
@@ -66,6 +82,8 @@ export default function CommunicationsPage() {
   // Filters
   const [activeChannel, setActiveChannel] = useState('all')
   const [activeStatus, setActiveStatus] = useState('all')
+  const [activeFolder, setActiveFolder] = useState('inbox')
+  const [activeLabel, setActiveLabel] = useState('')
   const [priorityOnly, setPriorityOnly] = useState(false)
   const [mineOnly, setMineOnly] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -81,10 +99,11 @@ export default function CommunicationsPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
       setCurrentUserEmail(user.email ?? '')
+      setCurrentUserId(user.id)
 
       const { data: userRow } = await supabase
         .from('users')
-        .select('business_id')
+        .select('business_id, full_name')
         .eq('id', user.id)
         .single()
 
@@ -95,6 +114,28 @@ export default function CommunicationsPage() {
           .eq('id', userRow.business_id)
           .single()
         if (biz?.name) setBusinessName(biz.name)
+
+        // Load team members with communications module access
+        const { data: members } = await supabase
+          .from('users')
+          .select('id, full_name, email, module_access')
+          .eq('business_id', userRow.business_id)
+          .eq('status', 'active')
+        if (members) {
+          setTeamMembers(
+            members
+              .filter((m) => {
+                // admins always have access; others need module_access.communications
+                const ma = m.module_access as Record<string, boolean> | null
+                return ma === null || ma?.communications !== false
+              })
+              .map((m) => ({
+                id: m.id,
+                fullName: m.full_name ?? m.email,
+                email: m.email,
+              }))
+          )
+        }
       }
     }
     loadMeta()
@@ -105,7 +146,7 @@ export default function CommunicationsPage() {
   // Load conversations
   // ---------------------------------------------------------------------------
 
-  const loadConversations = useCallback(async () => {
+  const loadConversations = useCallback(async (members?: TeamMember[]) => {
     const res = await fetch('/api/gmail/conversations')
     if (!res.ok) { setLoading(false); return }
     const { conversations: rows } = await res.json()
@@ -114,9 +155,10 @@ export default function CommunicationsPage() {
     setConversations((prev) => {
       const existing = new Map(prev.map((c) => [c.id, c.messages]))
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return unique.map((row: any) => adaptConversation(row, existing.get(row.id) ?? []))
+      return unique.map((row: any) => adaptConversation(row, existing.get(row.id) ?? [], members))
     })
     setLoading(false)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -179,10 +221,18 @@ export default function CommunicationsPage() {
 
   const filtered = useMemo(() => {
     return conversations.filter((c) => {
+      // Folder filter — 'archive' shows is_archived, others filter by folder value
+      if (activeFolder === 'archive') {
+        if (!c.isArchived) return false
+      } else {
+        if (c.isArchived) return false
+        if (activeFolder !== 'inbox' && c.folder !== activeFolder) return false
+      }
       if (activeChannel !== 'all' && c.channel !== activeChannel) return false
       if (activeStatus !== 'all' && c.status !== activeStatus) return false
       if (priorityOnly && !c.priority) return false
-      if (mineOnly && c.assignedTo !== 'You' && c.assignedTo !== currentUserEmail) return false
+      if (mineOnly && c.assignedToId !== currentUserId) return false
+      if (activeLabel && !c.labels?.includes(activeLabel)) return false
       if (searchQuery) {
         const q = searchQuery.toLowerCase()
         if (
@@ -193,7 +243,7 @@ export default function CommunicationsPage() {
       }
       return true
     })
-  }, [conversations, activeChannel, activeStatus, priorityOnly, mineOnly, searchQuery, currentUserEmail])
+  }, [conversations, activeChannel, activeStatus, activeFolder, activeLabel, priorityOnly, mineOnly, searchQuery, currentUserId])
 
   const selectedConversation = conversations.find((c) => c.id === selectedId) ?? null
   const showAIPanel = !!selectedConversation?.aiSuggestedReply && !dismissedAI.has(selectedId ?? '')
@@ -271,6 +321,44 @@ export default function CommunicationsPage() {
     setConversations((prev) => prev.map((c) => c.id === id ? { ...c, status: 'unread' } : c))
   }
 
+  async function handleAssign(id: string, memberId: string | null) {
+    await supabase.from('conversations').update({ assigned_to: memberId }).eq('id', id)
+    const member = teamMembers.find((m) => m.id === memberId)
+    setConversations((prev) => prev.map((c) =>
+      c.id === id ? { ...c, assignedToId: memberId ?? undefined, assignedTo: member?.fullName ?? undefined } : c
+    ))
+  }
+
+  async function handleLabel(id: string, label: string) {
+    const conv = conversations.find((c) => c.id === id)
+    if (!conv) return
+    const current = conv.labels ?? []
+    const next = current.includes(label) ? current.filter((l) => l !== label) : [...current, label]
+    await supabase.from('conversations').update({ labels: next }).eq('id', id)
+    setConversations((prev) => prev.map((c) => c.id === id ? { ...c, labels: next } : c))
+  }
+
+  async function handleArchive(id: string) {
+    await supabase.from('conversations').update({ is_archived: true }).eq('id', id)
+    setConversations((prev) => prev.map((c) => c.id === id ? { ...c, isArchived: true } : c))
+    // Deselect if currently open
+    if (selectedId === id) setSelectedId(null)
+  }
+
+  async function handleDelete(id: string) {
+    await supabase.from('conversations').delete().eq('id', id)
+    setConversations((prev) => prev.filter((c) => c.id !== id))
+    if (selectedId === id) setSelectedId(null)
+  }
+
+  async function handleMoveToFolder(id: string, folder: string) {
+    await supabase.from('conversations').update({ folder, is_archived: folder === 'archive' }).eq('id', id)
+    setConversations((prev) => prev.map((c) =>
+      c.id === id ? { ...c, folder, isArchived: folder === 'archive' } : c
+    ))
+    if (selectedId === id) setSelectedId(null)
+  }
+
   function handleDismissAI(id: string) {
     setDismissedAI((prev) => new Set([...prev, id]))
   }
@@ -326,6 +414,10 @@ export default function CommunicationsPage() {
           setActiveChannel={setActiveChannel}
           activeStatus={activeStatus}
           setActiveStatus={setActiveStatus}
+          activeFolder={activeFolder}
+          setActiveFolder={setActiveFolder}
+          activeLabel={activeLabel}
+          setActiveLabel={setActiveLabel}
           priorityOnly={priorityOnly}
           setPriorityOnly={setPriorityOnly}
           mineOnly={mineOnly}
@@ -372,10 +464,17 @@ export default function CommunicationsPage() {
             priorityOnly={priorityOnly}
             businessName={businessName}
             currentUserEmail={currentUserEmail}
+            currentUserId={currentUserId}
+            teamMembers={teamMembers}
             messagesLoading={messagesLoading}
             onDismissAI={handleDismissAI}
             onSendReply={handleSendReply}
             onMarkUnread={handleMarkUnread}
+            onAssign={handleAssign}
+            onLabel={handleLabel}
+            onArchive={handleArchive}
+            onDelete={handleDelete}
+            onMoveToFolder={handleMoveToFolder}
           />
         </div>
       </div>

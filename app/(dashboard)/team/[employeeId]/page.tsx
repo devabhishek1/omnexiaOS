@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { startOfWeek, endOfWeek, format } from 'date-fns'
 import { ArrowLeft, Mail, Phone } from 'lucide-react'
@@ -33,6 +34,9 @@ function initials(name: string) {
 export default function EmployeeProfilePage() {
   const params = useParams()
   const router = useRouter()
+  const t = useTranslations('team')
+  const tc = useTranslations('common')
+  const tp = useTranslations('planning')
   const employeeId = params.employeeId as string
 
   const [employee, setEmployee] = useState<Employee | null>(null)
@@ -91,7 +95,7 @@ export default function EmployeeProfilePage() {
   if (loading || !employee) {
     return (
       <div style={{ padding: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
-        <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Loading profile…</p>
+        <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{t('loadingProfile')}</p>
       </div>
     )
   }
@@ -100,7 +104,7 @@ export default function EmployeeProfilePage() {
   const status = user?.status ?? 'active'
   const rc = roleColors[role] ?? roleColors.employee
   const sc = statusColors[status] ?? statusColors.active
-  const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+  const DAYS = [tp('monday'), tp('tuesday'), tp('wednesday'), tp('thursday'), tp('friday'), tp('saturday'), tp('sunday')]
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 })
   const weekDays = DAYS.map((_, i) => format(new Date(weekStart.getTime() + i * 86400000), 'yyyy-MM-dd'))
 
@@ -108,7 +112,7 @@ export default function EmployeeProfilePage() {
     <div style={{ padding: '24px 32px', maxWidth: '900px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
       {/* Back */}
       <button onClick={() => router.push('/team')} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', color: 'var(--text-muted)', padding: 0, width: 'fit-content' }}>
-        <ArrowLeft size={14} /> Back to Team
+        <ArrowLeft size={14} /> {t('backToTeam')}
       </button>
 
       {/* Header card */}
@@ -120,15 +124,15 @@ export default function EmployeeProfilePage() {
             </div>
             <div>
               <h1 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>{employee.full_name}</h1>
-              <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '2px 0 8px' }}>{employee.role_title ?? 'No title set'}</p>
+              <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '2px 0 8px' }}>{employee.role_title ?? t('noTitleSet')}</p>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: '20px', backgroundColor: rc.bg, color: rc.color, textTransform: 'capitalize' }}>{role}</span>
-                <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: '20px', backgroundColor: sc.bg, color: sc.color, textTransform: 'capitalize' }}>{status === 'on_leave' ? 'On Leave' : status}</span>
+                <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: '20px', backgroundColor: rc.bg, color: rc.color }}>{t(role as 'admin' | 'manager' | 'employee' | 'accountant')}</span>
+                <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: '20px', backgroundColor: sc.bg, color: sc.color }}>{t(`status_${status}` as 'status_active' | 'status_on_leave' | 'status_deactivated' | 'status_invited')}</span>
               </div>
             </div>
           </div>
           <button onClick={() => setEditing(e => !e)} style={{ padding: '7px 14px', borderRadius: '8px', border: '1px solid var(--border)', background: 'none', fontSize: '13px', cursor: 'pointer', color: 'var(--text-secondary)' }}>
-            {editing ? 'Cancel' : 'Edit'}
+            {editing ? tc('cancel') : tc('edit')}
           </button>
         </div>
       </div>
@@ -136,7 +140,7 @@ export default function EmployeeProfilePage() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
         {/* Contact info */}
         <div style={{ backgroundColor: 'var(--bg-surface)', borderRadius: '12px', border: '1px solid var(--border)', padding: '20px' }}>
-          <p style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 14px' }}>Contact</p>
+          <p style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 14px' }}>{t('contact')}</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Mail size={14} color="var(--text-muted)" />
@@ -150,18 +154,18 @@ export default function EmployeeProfilePage() {
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Phone size={14} color="var(--text-muted)" />
-                <span style={{ fontSize: '13px', color: employee.phone ? 'var(--text-secondary)' : 'var(--text-muted)' }}>{employee.phone ?? 'No phone set'}</span>
+                <span style={{ fontSize: '13px', color: employee.phone ? 'var(--text-secondary)' : 'var(--text-muted)' }}>{employee.phone ?? t('noPhoneSet')}</span>
               </div>
             )}
             {editing && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Role title</label>
+                <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t('roleTitle')}</label>
                 <input value={roleTitle} onChange={e => setRoleTitle(e.target.value)} placeholder="e.g. Sales Manager" style={{ padding: '5px 8px', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '13px', backgroundColor: 'var(--bg-elevated)' }} />
               </div>
             )}
             {editing && (
               <button onClick={handleSave} disabled={saving} style={{ padding: '7px 14px', borderRadius: '7px', backgroundColor: 'var(--omnexia-accent)', color: '#fff', border: 'none', fontSize: '13px', fontWeight: 600, cursor: 'pointer', alignSelf: 'flex-start' }}>
-                {saving ? 'Saving…' : 'Save'}
+                {saving ? tc('sending') : tc('save')}
               </button>
             )}
           </div>
@@ -169,9 +173,9 @@ export default function EmployeeProfilePage() {
 
         {/* Module access */}
         <div style={{ backgroundColor: 'var(--bg-surface)', borderRadius: '12px', border: '1px solid var(--border)', padding: '20px' }}>
-          <p style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 14px' }}>Module Access</p>
+          <p style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 14px' }}>{t('moduleAccess')}</p>
           {!user ? (
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>No user account linked yet.</p>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{t('noAccountLinked')}</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {MODULES.map(mod => (
@@ -189,7 +193,7 @@ export default function EmployeeProfilePage() {
 
       {/* This week's schedule */}
       <div style={{ backgroundColor: 'var(--bg-surface)', borderRadius: '12px', border: '1px solid var(--border)', padding: '20px' }}>
-        <p style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 12px' }}>This Week's Schedule</p>
+        <p style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 12px' }}>{t('thisWeeksSchedule')}</p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '6px' }}>
           {DAYS.map((day, i) => {
             const shift = shifts.find(s => s.date === weekDays[i])
@@ -203,7 +207,7 @@ export default function EmployeeProfilePage() {
                   </div>
                 ) : (
                   <div style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: '6px', padding: '6px 4px' }}>
-                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>Off</p>
+                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>{t('off')}</p>
                   </div>
                 )}
               </div>
@@ -214,9 +218,9 @@ export default function EmployeeProfilePage() {
 
       {/* Activity history */}
       <div style={{ backgroundColor: 'var(--bg-surface)', borderRadius: '12px', border: '1px solid var(--border)', overflow: 'hidden' }}>
-        <p style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0, padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>Activity History</p>
+        <p style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0, padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>{t('activityHistory')}</p>
         {logs.length === 0 ? (
-          <p style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', padding: '24px' }}>No activity recorded.</p>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', padding: '24px' }}>{t('noActivityRecorded')}</p>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <tbody>
