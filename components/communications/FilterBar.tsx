@@ -16,10 +16,6 @@ interface FilterBarProps {
   setActiveFolder: (f: string) => void
   activeLabel: string
   setActiveLabel: (l: string) => void
-  priorityOnly: boolean
-  setPriorityOnly: (p: boolean) => void
-  mineOnly: boolean
-  setMineOnly: (m: boolean) => void
   searchQuery: string
   setSearchQuery: (q: string) => void
   onCompose: () => void
@@ -32,8 +28,6 @@ export function FilterBar({
   activeStatus, setActiveStatus,
   activeFolder, setActiveFolder,
   activeLabel, setActiveLabel,
-  priorityOnly, setPriorityOnly,
-  mineOnly, setMineOnly,
   searchQuery, setSearchQuery,
   onCompose,
   onSync,
@@ -46,16 +40,13 @@ export function FilterBar({
   const [dropPos, setDropPos] = useState<{ top: number; right: number } | null>(null)
   const filterBtnRef = useRef<HTMLButtonElement>(null)
 
-  // Close filter dropdown on outside click
   useEffect(() => {
     if (!filterOpen) return
     function handler(e: MouseEvent) {
-      if (filterBtnRef.current && !filterBtnRef.current.contains(e.target as Node)) {
-        // Check if click is on the dropdown portal itself
-        const portal = document.getElementById('filter-dropdown-portal')
-        if (portal && portal.contains(e.target as Node)) return
-        setFilterOpen(false)
-      }
+      const portal = document.getElementById('filter-dropdown-portal')
+      if (portal && portal.contains(e.target as Node)) return
+      if (filterBtnRef.current && filterBtnRef.current.contains(e.target as Node)) return
+      setFilterOpen(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -70,22 +61,16 @@ export function FilterBar({
     setFilterOpen(true)
   }
 
-  function clearAll() {
+  function clearFilter() {
     setActiveLabel('')
-    setPriorityOnly(false)
-    setMineOnly(false)
     setFilterOpen(false)
   }
 
-  const hasFilter = priorityOnly || mineOnly || !!activeLabel
-  const filterLabel = priorityOnly
-    ? t('filterPriority')
-    : mineOnly
-    ? t('filterMine')
-    : activeLabel
-    ? LABEL_OPTIONS.includes(activeLabel as typeof LABEL_OPTIONS[number])
-      ? t(LABEL_KEYS[LABEL_OPTIONS.indexOf(activeLabel as typeof LABEL_OPTIONS[number])])
-      : activeLabel
+  const hasFilter = !!activeLabel
+  // Display label on the button — translate if it's a known label
+  const labelIdx = LABEL_OPTIONS.indexOf(activeLabel as typeof LABEL_OPTIONS[number])
+  const filterLabel = hasFilter
+    ? (labelIdx >= 0 ? t(LABEL_KEYS[labelIdx]) : activeLabel)
     : t('label')
 
   const CHANNELS = [
@@ -98,6 +83,7 @@ export function FilterBar({
   const STATUSES = [
     { id: 'all', label: t('filterAll') },
     { id: 'unread', label: t('filterUnread') },
+    { id: 'replied', label: t('filterReplied') },
   ]
 
   const FOLDERS = [
@@ -107,14 +93,14 @@ export function FilterBar({
     { id: 'follow-up', label: t('folderFollowUp') },
   ]
 
-  const pill = (active: boolean, color?: 'amber' | 'blue') => ({
+  const pill = (active: boolean) => ({
     padding: '4px 11px',
     borderRadius: '20px',
     fontSize: '12px',
     fontWeight: active ? 700 : 500,
-    color: active ? (color === 'amber' ? '#B45309' : '#2563EB') : '#374151',
-    background: active ? (color === 'amber' ? '#FEF3C7' : '#EEF3FE') : '#F3F4F6',
-    border: active ? `1px solid ${color === 'amber' ? '#FDE68A' : '#BFDBFE'}` : '1px solid transparent',
+    color: active ? '#2563EB' : '#374151',
+    background: active ? '#EEF3FE' : '#F3F4F6',
+    border: active ? '1px solid #BFDBFE' : '1px solid transparent',
     cursor: 'pointer',
     whiteSpace: 'nowrap' as const,
     transition: 'all 0.12s',
@@ -188,7 +174,7 @@ export function FilterBar({
           }}
           className="hide-scrollbar"
         >
-          {/* Status pills */}
+          {/* Status pills: All | Unread | Replied */}
           {STATUSES.map((s) => {
             const isActive = activeStatus === s.id
             return (
@@ -212,9 +198,9 @@ export function FilterBar({
           })}
         </div>
 
-        {/* ── RIGHT: Filter dropdown + Search + Sync + Compose (always visible) ── */}
+        {/* ── RIGHT: Label filter + Search + Sync + Compose ── */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, marginLeft: '8px' }}>
-          {/* Combined Filter (Label + Priority + Mine) */}
+          {/* Combined Label/Priority/Mine filter button */}
           <button
             ref={filterBtnRef}
             onClick={openFilter}
@@ -289,7 +275,7 @@ export function FilterBar({
         </div>
       </div>
 
-      {/* Filter dropdown — rendered via fixed positioning to escape overflow clipping */}
+      {/* Label/filter dropdown — fixed position to escape overflow clipping */}
       {filterOpen && dropPos && (
         <>
           <div style={{ position: 'fixed', inset: 0, zIndex: 199 }} onClick={() => setFilterOpen(false)} />
@@ -308,54 +294,56 @@ export function FilterBar({
               overflow: 'hidden',
             }}
           >
-            {/* Priority toggle */}
+            {/* Priority — filters by label 'Priority' */}
             <button
-              onClick={() => { setPriorityOnly(!priorityOnly); if (!priorityOnly) { setMineOnly(false); setActiveLabel('') } }}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '10px 14px', textAlign: 'left', background: priorityOnly ? '#FFFBEB' : '#FFF', color: priorityOnly ? '#B45309' : '#1A1A1A', fontSize: '13px', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif', fontWeight: priorityOnly ? 600 : 400 }}
+              onClick={() => { setActiveLabel(activeLabel === 'Priority' ? '' : 'Priority'); setFilterOpen(false) }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '10px 14px', textAlign: 'left', background: activeLabel === 'Priority' ? '#FFFBEB' : '#FFF', color: activeLabel === 'Priority' ? '#B45309' : '#1A1A1A', fontSize: '13px', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif', fontWeight: activeLabel === 'Priority' ? 600 : 400 }}
             >
-              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Zap size={13} color={priorityOnly ? '#B45309' : '#6B7280'} /> {t('filterPriority')}</span>
-              {priorityOnly && <Check size={12} />}
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Zap size={13} color={activeLabel === 'Priority' ? '#B45309' : '#6B7280'} />
+                {t('labelPriority')}
+              </span>
+              {activeLabel === 'Priority' && <Check size={12} />}
             </button>
 
-            {/* Mine toggle */}
+            {/* Mine — filters by label 'Mine' */}
             <button
-              onClick={() => { setMineOnly(!mineOnly); if (!mineOnly) { setPriorityOnly(false); setActiveLabel('') } }}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '10px 14px', textAlign: 'left', background: mineOnly ? '#EEF3FE' : '#FFF', color: mineOnly ? '#2563EB' : '#1A1A1A', fontSize: '13px', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif', fontWeight: mineOnly ? 600 : 400 }}
+              onClick={() => { setActiveLabel(activeLabel === 'Mine' ? '' : 'Mine'); setFilterOpen(false) }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '10px 14px', textAlign: 'left', background: activeLabel === 'Mine' ? '#EEF3FE' : '#FFF', color: activeLabel === 'Mine' ? '#2563EB' : '#1A1A1A', fontSize: '13px', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif', fontWeight: activeLabel === 'Mine' ? 600 : 400 }}
             >
-              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><User size={13} color={mineOnly ? '#2563EB' : '#6B7280'} /> {t('filterMine')}</span>
-              {mineOnly && <Check size={12} />}
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <User size={13} color={activeLabel === 'Mine' ? '#2563EB' : '#6B7280'} />
+                {t('labelMine')}
+              </span>
+              {activeLabel === 'Mine' && <Check size={12} />}
             </button>
 
             {/* Separator */}
             <div style={{ height: '1px', background: '#E8E8E2', margin: '2px 0' }} />
 
-            {/* Label options */}
-            {LABEL_OPTIONS.map((label, i) => {
+            {/* Remaining label options (skip Priority and Mine — already shown above) */}
+            {LABEL_OPTIONS.filter((l) => l !== 'Priority' && l !== 'Mine').map((label) => {
+              const idx = LABEL_OPTIONS.indexOf(label)
               const active = activeLabel === label
               return (
                 <button
                   key={label}
-                  onClick={() => {
-                    setActiveLabel(active ? '' : label)
-                    setPriorityOnly(false)
-                    setMineOnly(false)
-                    setFilterOpen(false)
-                  }}
+                  onClick={() => { setActiveLabel(active ? '' : label); setFilterOpen(false) }}
                   style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '9px 14px', textAlign: 'left', background: active ? '#EEF3FE' : '#FFF', color: active ? '#2563EB' : '#1A1A1A', fontSize: '13px', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif', fontWeight: active ? 600 : 400 }}
                 >
-                  {t(LABEL_KEYS[i])}
+                  {t(LABEL_KEYS[idx])}
                   {active && <Check size={12} />}
                 </button>
               )
             })}
 
-            {/* Clear all — only shown when something is active */}
+            {/* Clear — only when a filter is active */}
             {hasFilter && (
               <>
                 <div style={{ height: '1px', background: '#E8E8E2', margin: '2px 0' }} />
                 <button
-                  onClick={clearAll}
-                  style={{ display: 'flex', alignItems: 'center', width: '100%', padding: '9px 14px', textAlign: 'left', background: '#FFF', color: '#9CA3AF', fontSize: '12px', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif' }}
+                  onClick={clearFilter}
+                  style={{ display: 'flex', alignItems: 'center', width: '100%', padding: '9px 14px', background: '#FFF', color: '#9CA3AF', fontSize: '12px', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif' }}
                 >
                   {tc('remove')} filter
                 </button>

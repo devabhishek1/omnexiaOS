@@ -113,6 +113,7 @@
     "syncingInbox": "Synchronisation de votre boîte de réception...",
     "filterAll": "Tous",
     "filterUnread": "Non lu",
+    "filterReplied": "Répondu",
     "filterPriority": "Priorité",
     "filterMine": "Le mien",
     "aiReply": "Réponse de l'IA",

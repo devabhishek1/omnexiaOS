@@ -84,8 +84,6 @@ export default function CommunicationsPage() {
   const [activeStatus, setActiveStatus] = useState('all')
   const [activeFolder, setActiveFolder] = useState('inbox')
   const [activeLabel, setActiveLabel] = useState('')
-  const [priorityOnly, setPriorityOnly] = useState(false)
-  const [mineOnly, setMineOnly] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [composeOpen, setComposeOpen] = useState(false)
   const [syncing, setSyncing] = useState(false)
@@ -229,9 +227,18 @@ export default function CommunicationsPage() {
         if (activeFolder !== 'inbox' && c.folder !== activeFolder) return false
       }
       if (activeChannel !== 'all' && c.channel !== activeChannel) return false
-      if (activeStatus !== 'all' && c.status !== activeStatus) return false
-      if (priorityOnly && !c.priority) return false
-      if (mineOnly && c.assignedToId !== currentUserId) return false
+      // Status filter — 'replied' means the last loaded message was outbound (sent by owner)
+      if (activeStatus === 'replied') {
+        const lastMsg = c.messages[c.messages.length - 1]
+        // If messages are loaded, check direction; otherwise fall back to status field
+        if (c.messages.length > 0) {
+          if (lastMsg?.direction !== 'outbound') return false
+        } else {
+          if (c.status !== 'replied') return false
+        }
+      } else if (activeStatus !== 'all') {
+        if (c.status !== activeStatus) return false
+      }
       if (activeLabel && !c.labels?.includes(activeLabel)) return false
       if (searchQuery) {
         const q = searchQuery.toLowerCase()
@@ -243,7 +250,7 @@ export default function CommunicationsPage() {
       }
       return true
     })
-  }, [conversations, activeChannel, activeStatus, activeFolder, activeLabel, priorityOnly, mineOnly, searchQuery, currentUserId])
+  }, [conversations, activeChannel, activeStatus, activeFolder, activeLabel, searchQuery])
 
   const selectedConversation = conversations.find((c) => c.id === selectedId) ?? null
   const showAIPanel = !!selectedConversation?.aiSuggestedReply && !dismissedAI.has(selectedId ?? '')
@@ -418,10 +425,6 @@ export default function CommunicationsPage() {
           setActiveFolder={setActiveFolder}
           activeLabel={activeLabel}
           setActiveLabel={setActiveLabel}
-          priorityOnly={priorityOnly}
-          setPriorityOnly={setPriorityOnly}
-          mineOnly={mineOnly}
-          setMineOnly={setMineOnly}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
           onCompose={() => setComposeOpen(true)}
@@ -461,7 +464,7 @@ export default function CommunicationsPage() {
           <ThreadView
             conversation={selectedConversation}
             showAIPanel={showAIPanel}
-            priorityOnly={priorityOnly}
+            priorityOnly={false}
             businessName={businessName}
             currentUserEmail={currentUserEmail}
             currentUserId={currentUserId}

@@ -113,6 +113,7 @@
     "syncingInbox": "Syncing your inbox...",
     "filterAll": "All",
     "filterUnread": "Unread",
+    "filterReplied": "Replied",
     "filterPriority": "Priority",
     "filterMine": "Mine",
     "aiReply": "AI Reply",
