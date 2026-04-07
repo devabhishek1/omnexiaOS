@@ -227,18 +227,9 @@ export default function CommunicationsPage() {
         if (activeFolder !== 'inbox' && c.folder !== activeFolder) return false
       }
       if (activeChannel !== 'all' && c.channel !== activeChannel) return false
-      // Status filter — 'replied' means the last loaded message was outbound (sent by owner)
-      if (activeStatus === 'replied') {
-        const lastMsg = c.messages[c.messages.length - 1]
-        // If messages are loaded, check direction; otherwise fall back to status field
-        if (c.messages.length > 0) {
-          if (lastMsg?.direction !== 'outbound') return false
-        } else {
-          if (c.status !== 'replied') return false
-        }
-      } else if (activeStatus !== 'all') {
-        if (c.status !== activeStatus) return false
-      }
+      // Status filter — the API computes effective status from last message direction,
+      // so c.status === 'replied' is always correct without needing messages loaded.
+      if (activeStatus !== 'all' && c.status !== activeStatus) return false
       if (activeLabel && !c.labels?.includes(activeLabel)) return false
       if (searchQuery) {
         const q = searchQuery.toLowerCase()

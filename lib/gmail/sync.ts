@@ -145,6 +145,36 @@ export async function upsertMessage(
 
   if (msgError) {
     console.error('[sync] message insert error:', msgError.message)
+    return
+  }
+
+  // ── Update conversation status based on actual latest message direction ───
+  // The safeStatus calculation above only considers isUnread. But we also need
+  // to detect 'replied' (last message is outbound). Since messages may be
+  // processed out of chronological order (Gmail API returns newest first),
+  // we query the actual latest message after insert to get the true status.
+  const { data: latestMsg } = await admin
+    .from('messages')
+    .select('direction, is_read')
+    .eq('conversation_id', conversation.id)
+    .order('received_at', { ascending: false })
+    .limit(1)
+    .single()
+
+  if (latestMsg) {
+    let derivedStatus: string
+    if (latestMsg.direction === 'outbound') {
+      derivedStatus = 'replied'
+    } else if (!latestMsg.is_read) {
+      // Only mark unread if the app hasn't already marked it read
+      derivedStatus = existingConv?.status === 'read' ? 'read' : 'unread'
+    } else {
+      derivedStatus = 'read'
+    }
+    await admin
+      .from('conversations')
+      .update({ status: derivedStatus })
+      .eq('id', conversation.id)
   }
 }
 
