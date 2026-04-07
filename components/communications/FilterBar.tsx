@@ -2,9 +2,10 @@
 
 import React, { useState, useRef, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
-import { Search, PenSquare, Zap, RefreshCw, Tag, ChevronDown, Check } from 'lucide-react'
+import { Search, PenSquare, Zap, RefreshCw, Tag, ChevronDown, Check, User } from 'lucide-react'
 
-const LABEL_OPTIONS = ['Priority', 'Urgent', 'Invoice', 'Support', 'Legal', 'Mine']
+const LABEL_OPTIONS = ['Priority', 'Urgent', 'Invoice', 'Support', 'Legal', 'Mine'] as const
+const LABEL_KEYS = ['labelPriority', 'labelUrgent', 'labelInvoice', 'labelSupport', 'labelLegal', 'labelMine'] as const
 
 interface FilterBarProps {
   activeChannel: string
@@ -40,19 +41,52 @@ export function FilterBar({
 }: FilterBarProps) {
   const t = useTranslations('communications')
   const tc = useTranslations('common')
-  const [labelOpen, setLabelOpen] = useState(false)
-  const labelRef = useRef<HTMLDivElement>(null)
 
-  // Close label dropdown on outside click
+  const [filterOpen, setFilterOpen] = useState(false)
+  const [dropPos, setDropPos] = useState<{ top: number; right: number } | null>(null)
+  const filterBtnRef = useRef<HTMLButtonElement>(null)
+
+  // Close filter dropdown on outside click
   useEffect(() => {
+    if (!filterOpen) return
     function handler(e: MouseEvent) {
-      if (labelRef.current && !labelRef.current.contains(e.target as Node)) {
-        setLabelOpen(false)
+      if (filterBtnRef.current && !filterBtnRef.current.contains(e.target as Node)) {
+        // Check if click is on the dropdown portal itself
+        const portal = document.getElementById('filter-dropdown-portal')
+        if (portal && portal.contains(e.target as Node)) return
+        setFilterOpen(false)
       }
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [])
+  }, [filterOpen])
+
+  function openFilter() {
+    if (filterOpen) { setFilterOpen(false); return }
+    if (filterBtnRef.current) {
+      const rect = filterBtnRef.current.getBoundingClientRect()
+      setDropPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right })
+    }
+    setFilterOpen(true)
+  }
+
+  function clearAll() {
+    setActiveLabel('')
+    setPriorityOnly(false)
+    setMineOnly(false)
+    setFilterOpen(false)
+  }
+
+  const hasFilter = priorityOnly || mineOnly || !!activeLabel
+  const filterLabel = priorityOnly
+    ? t('filterPriority')
+    : mineOnly
+    ? t('filterMine')
+    : activeLabel
+    ? LABEL_OPTIONS.includes(activeLabel as typeof LABEL_OPTIONS[number])
+      ? t(LABEL_KEYS[LABEL_OPTIONS.indexOf(activeLabel as typeof LABEL_OPTIONS[number])])
+      : activeLabel
+    : t('label')
 
   const CHANNELS = [
     { id: 'all', label: t('filterAll') },
@@ -64,15 +98,13 @@ export function FilterBar({
   const STATUSES = [
     { id: 'all', label: t('filterAll') },
     { id: 'unread', label: t('filterUnread') },
-    { id: 'read', label: t('markRead') },
-    { id: 'replied', label: t('reply') },
   ]
 
   const FOLDERS = [
-    { id: 'inbox', label: 'Inbox' },
-    { id: 'archive', label: 'Archive' },
-    { id: 'later', label: 'Later' },
-    { id: 'follow-up', label: 'Follow-up' },
+    { id: 'inbox', label: t('inbox') },
+    { id: 'archive', label: t('archive') },
+    { id: 'later', label: t('folderLater') },
+    { id: 'follow-up', label: t('folderFollowUp') },
   ]
 
   const pill = (active: boolean, color?: 'amber' | 'blue') => ({
@@ -94,200 +126,244 @@ export function FilterBar({
   })
 
   return (
-    <div
-      style={{
-        height: '56px',
-        minHeight: '56px',
-        background: '#FFFFFF',
-        borderBottom: '1px solid #E8E8E2',
-        display: 'flex',
-        alignItems: 'center',
-        padding: '0 20px',
-        gap: '4px',
-        flexShrink: 0,
-        overflow: 'hidden', // no overall scroll
-      }}
-    >
-      {/* ── LEFT: Channel tabs (fixed, never scroll) ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
-        {CHANNELS.map((ch) => {
-          const isActive = activeChannel === ch.id
-          return (
-            <button
-              key={ch.id}
-              disabled={ch.soon}
-              onClick={() => !ch.soon && setActiveChannel(ch.id)}
-              style={{
-                padding: '5px 10px',
-                borderRadius: '6px',
-                fontSize: '13px',
-                fontWeight: isActive ? 700 : 500,
-                color: ch.soon ? '#BBBBBB' : isActive ? '#2563EB' : '#374151',
-                background: isActive ? '#EEF3FE' : 'transparent',
-                border: isActive ? '1px solid #BFDBFE' : '1px solid transparent',
-                cursor: ch.soon ? 'default' : 'pointer',
-                whiteSpace: 'nowrap',
-                transition: 'all 0.12s',
-                flexShrink: 0,
-                fontFamily: 'var(--font-dm-sans), sans-serif',
-              }}
-            >
-              {ch.label}
-              {ch.soon && <span style={{ fontSize: '10px', marginLeft: '3px', color: '#BBBBBB' }}>({tc('soon')})</span>}
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Divider */}
-      <div style={{ width: '1px', height: '20px', background: '#E8E8E2', margin: '0 6px', flexShrink: 0 }} />
-
-      {/* ── MIDDLE: Scrollable filter pills ── */}
+    <>
       <div
         style={{
+          height: '56px',
+          minHeight: '56px',
+          background: '#FFFFFF',
+          borderBottom: '1px solid #E8E8E2',
           display: 'flex',
           alignItems: 'center',
-          gap: '5px',
-          flex: 1,
-          overflowX: 'auto',
-          scrollbarWidth: 'none',
-          msOverflowStyle: 'none',
+          padding: '0 20px',
+          gap: '4px',
+          flexShrink: 0,
+          overflow: 'hidden',
         }}
-        className="hide-scrollbar"
       >
-        {/* Status pills */}
-        {STATUSES.map((s) => {
-          const isActive = activeStatus === s.id
-          return (
-            <button key={s.id} onClick={() => setActiveStatus(s.id)} style={pill(isActive)}>
-              {s.label}
-            </button>
-          )
-        })}
+        {/* ── LEFT: Channel tabs (fixed) ── */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
+          {CHANNELS.map((ch) => {
+            const isActive = activeChannel === ch.id
+            return (
+              <button
+                key={ch.id}
+                disabled={ch.soon}
+                onClick={() => !ch.soon && setActiveChannel(ch.id)}
+                style={{
+                  padding: '5px 10px',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  fontWeight: isActive ? 700 : 500,
+                  color: ch.soon ? '#BBBBBB' : isActive ? '#2563EB' : '#374151',
+                  background: isActive ? '#EEF3FE' : 'transparent',
+                  border: isActive ? '1px solid #BFDBFE' : '1px solid transparent',
+                  cursor: ch.soon ? 'default' : 'pointer',
+                  whiteSpace: 'nowrap',
+                  transition: 'all 0.12s',
+                  flexShrink: 0,
+                  fontFamily: 'var(--font-dm-sans), sans-serif',
+                }}
+              >
+                {ch.label}
+                {ch.soon && <span style={{ fontSize: '10px', marginLeft: '3px', color: '#BBBBBB' }}>({tc('soon')})</span>}
+              </button>
+            )
+          })}
+        </div>
 
         {/* Divider */}
-        <div style={{ width: '1px', height: '16px', background: '#E8E8E2', margin: '0 4px', flexShrink: 0 }} />
+        <div style={{ width: '1px', height: '20px', background: '#E8E8E2', margin: '0 6px', flexShrink: 0 }} />
 
-        {/* Folder pills */}
-        {FOLDERS.map((f) => {
-          const isActive = activeFolder === f.id
-          return (
-            <button key={f.id} onClick={() => setActiveFolder(f.id)} style={pill(isActive)}>
-              {f.label}
-            </button>
-          )
-        })}
+        {/* ── MIDDLE: Scrollable filter pills ── */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '5px',
+            flex: 1,
+            overflowX: 'auto',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+          }}
+          className="hide-scrollbar"
+        >
+          {/* Status pills */}
+          {STATUSES.map((s) => {
+            const isActive = activeStatus === s.id
+            return (
+              <button key={s.id} onClick={() => setActiveStatus(s.id)} style={pill(isActive)}>
+                {s.label}
+              </button>
+            )
+          })}
 
-        {/* Divider */}
-        <div style={{ width: '1px', height: '16px', background: '#E8E8E2', margin: '0 4px', flexShrink: 0 }} />
+          {/* Divider */}
+          <div style={{ width: '1px', height: '16px', background: '#E8E8E2', margin: '0 4px', flexShrink: 0 }} />
 
-        {/* Priority toggle */}
-        <button onClick={() => setPriorityOnly(!priorityOnly)} style={pill(priorityOnly, 'amber')}>
-          <Zap size={11} />
-          {t('filterPriority')}
-        </button>
+          {/* Folder pills */}
+          {FOLDERS.map((f) => {
+            const isActive = activeFolder === f.id
+            return (
+              <button key={f.id} onClick={() => setActiveFolder(f.id)} style={pill(isActive)}>
+                {f.label}
+              </button>
+            )
+          })}
+        </div>
 
-        {/* Mine toggle */}
-        <button onClick={() => setMineOnly(!mineOnly)} style={pill(mineOnly)}>
-          👤 {t('filterMine')}
-        </button>
-
-        {/* Divider */}
-        <div style={{ width: '1px', height: '16px', background: '#E8E8E2', margin: '0 4px', flexShrink: 0 }} />
-
-        {/* Label dropdown */}
-        <div ref={labelRef} style={{ position: 'relative', flexShrink: 0 }}>
+        {/* ── RIGHT: Filter dropdown + Search + Sync + Compose (always visible) ── */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, marginLeft: '8px' }}>
+          {/* Combined Filter (Label + Priority + Mine) */}
           <button
-            onClick={() => setLabelOpen(!labelOpen)}
+            ref={filterBtnRef}
+            onClick={openFilter}
             style={{
-              ...pill(!!activeLabel),
-              gap: '5px',
+              display: 'flex', alignItems: 'center', gap: '5px',
+              padding: '5px 10px',
+              borderRadius: '20px',
+              fontSize: '12px',
+              fontWeight: hasFilter ? 700 : 500,
+              color: hasFilter ? '#2563EB' : '#374151',
+              background: hasFilter ? '#EEF3FE' : '#F3F4F6',
+              border: hasFilter ? '1px solid #BFDBFE' : '1px solid transparent',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              transition: 'all 0.12s',
+              fontFamily: 'var(--font-dm-sans), sans-serif',
             }}
           >
             <Tag size={11} />
-            {activeLabel || 'Label'}
-            <ChevronDown size={10} style={{ marginLeft: '1px', opacity: 0.6 }} />
+            {filterLabel}
+            <ChevronDown size={10} style={{ opacity: 0.6, transform: filterOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
           </button>
-          {labelOpen && (
-            <div style={{
-              position: 'absolute', top: '100%', left: 0, marginTop: '4px',
-              background: '#FFF', border: '1px solid #E8E8E2', borderRadius: '10px',
-              boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 100, minWidth: '140px', overflow: 'hidden',
-            }}>
-              {activeLabel && (
-                <button
-                  onClick={() => { setActiveLabel(''); setLabelOpen(false) }}
-                  style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '9px 14px', textAlign: 'left', background: '#FFF', color: '#6B6B6B', fontSize: '13px', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif' }}
-                >
-                  Clear filter
-                </button>
-              )}
-              {LABEL_OPTIONS.map((label) => (
+
+          {/* Search */}
+          <div style={{ position: 'relative' }}>
+            <Search size={13} style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)', color: '#9CA3AF', pointerEvents: 'none' }} />
+            <input
+              type="text"
+              placeholder={tc('search')}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                width: '180px',
+                padding: '6px 10px 6px 28px',
+                border: '1px solid #E8E8E2',
+                borderRadius: '8px',
+                fontSize: '13px',
+                background: '#F9F9F6',
+                color: '#1A1A1A',
+                outline: 'none',
+                fontFamily: 'var(--font-dm-sans), sans-serif',
+              }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = '#2563EB'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.12)' }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = '#E8E8E2'; e.currentTarget.style.boxShadow = 'none' }}
+            />
+          </div>
+
+          {/* Sync */}
+          {onSync && (
+            <button
+              onClick={onSync}
+              disabled={syncing}
+              title="Sync inbox"
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', background: 'transparent', border: '1px solid #E8E8E2', borderRadius: '8px', cursor: syncing ? 'not-allowed' : 'pointer', color: '#6B6B6B', transition: 'background 0.12s' }}
+              onMouseEnter={(e) => { if (!syncing) e.currentTarget.style.background = '#F3F4F6' }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+            >
+              <RefreshCw size={13} style={{ animation: syncing ? 'spin 1s linear infinite' : 'none' }} />
+            </button>
+          )}
+
+          {/* Compose */}
+          <button
+            onClick={onCompose}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', background: '#2563EB', color: '#FFF', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'background 0.15s', fontFamily: 'var(--font-dm-sans), sans-serif' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = '#1D4ED8' }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = '#2563EB' }}
+          >
+            <PenSquare size={13} />
+            {t('compose')}
+          </button>
+        </div>
+      </div>
+
+      {/* Filter dropdown — rendered via fixed positioning to escape overflow clipping */}
+      {filterOpen && dropPos && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 199 }} onClick={() => setFilterOpen(false)} />
+          <div
+            id="filter-dropdown-portal"
+            style={{
+              position: 'fixed',
+              top: dropPos.top,
+              right: dropPos.right,
+              background: '#FFF',
+              border: '1px solid #E8E8E2',
+              borderRadius: '12px',
+              boxShadow: '0 8px 28px rgba(0,0,0,0.13)',
+              zIndex: 200,
+              minWidth: '180px',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Priority toggle */}
+            <button
+              onClick={() => { setPriorityOnly(!priorityOnly); if (!priorityOnly) { setMineOnly(false); setActiveLabel('') } }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '10px 14px', textAlign: 'left', background: priorityOnly ? '#FFFBEB' : '#FFF', color: priorityOnly ? '#B45309' : '#1A1A1A', fontSize: '13px', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif', fontWeight: priorityOnly ? 600 : 400 }}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Zap size={13} color={priorityOnly ? '#B45309' : '#6B7280'} /> {t('filterPriority')}</span>
+              {priorityOnly && <Check size={12} />}
+            </button>
+
+            {/* Mine toggle */}
+            <button
+              onClick={() => { setMineOnly(!mineOnly); if (!mineOnly) { setPriorityOnly(false); setActiveLabel('') } }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '10px 14px', textAlign: 'left', background: mineOnly ? '#EEF3FE' : '#FFF', color: mineOnly ? '#2563EB' : '#1A1A1A', fontSize: '13px', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif', fontWeight: mineOnly ? 600 : 400 }}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><User size={13} color={mineOnly ? '#2563EB' : '#6B7280'} /> {t('filterMine')}</span>
+              {mineOnly && <Check size={12} />}
+            </button>
+
+            {/* Separator */}
+            <div style={{ height: '1px', background: '#E8E8E2', margin: '2px 0' }} />
+
+            {/* Label options */}
+            {LABEL_OPTIONS.map((label, i) => {
+              const active = activeLabel === label
+              return (
                 <button
                   key={label}
-                  onClick={() => { setActiveLabel(label === activeLabel ? '' : label); setLabelOpen(false) }}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '9px 14px', textAlign: 'left', background: activeLabel === label ? '#EEF3FE' : '#FFF', color: activeLabel === label ? '#2563EB' : '#1A1A1A', fontSize: '13px', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif', fontWeight: activeLabel === label ? 600 : 400 }}
+                  onClick={() => {
+                    setActiveLabel(active ? '' : label)
+                    setPriorityOnly(false)
+                    setMineOnly(false)
+                    setFilterOpen(false)
+                  }}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '9px 14px', textAlign: 'left', background: active ? '#EEF3FE' : '#FFF', color: active ? '#2563EB' : '#1A1A1A', fontSize: '13px', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif', fontWeight: active ? 600 : 400 }}
                 >
-                  {label}
-                  {activeLabel === label && <Check size={12} />}
+                  {t(LABEL_KEYS[i])}
+                  {active && <Check size={12} />}
                 </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+              )
+            })}
 
-      {/* ── RIGHT: Search + Sync + Compose (always visible) ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, marginLeft: '8px' }}>
-        {/* Search */}
-        <div style={{ position: 'relative' }}>
-          <Search size={13} style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)', color: '#9CA3AF', pointerEvents: 'none' }} />
-          <input
-            type="text"
-            placeholder={tc('search')}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{
-              width: '180px',
-              padding: '6px 10px 6px 28px',
-              border: '1px solid #E8E8E2',
-              borderRadius: '8px',
-              fontSize: '13px',
-              background: '#F9F9F6',
-              color: '#1A1A1A',
-              outline: 'none',
-              fontFamily: 'var(--font-dm-sans), sans-serif',
-            }}
-            onFocus={(e) => { e.currentTarget.style.borderColor = '#2563EB'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.12)' }}
-            onBlur={(e) => { e.currentTarget.style.borderColor = '#E8E8E2'; e.currentTarget.style.boxShadow = 'none' }}
-          />
-        </div>
-
-        {/* Sync */}
-        {onSync && (
-          <button
-            onClick={onSync}
-            disabled={syncing}
-            title="Sync inbox"
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', background: 'transparent', border: '1px solid #E8E8E2', borderRadius: '8px', cursor: syncing ? 'not-allowed' : 'pointer', color: '#6B6B6B', transition: 'background 0.12s' }}
-            onMouseEnter={(e) => { if (!syncing) e.currentTarget.style.background = '#F3F4F6' }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
-          >
-            <RefreshCw size={13} style={{ animation: syncing ? 'spin 1s linear infinite' : 'none' }} />
-          </button>
-        )}
-
-        {/* Compose */}
-        <button
-          onClick={onCompose}
-          style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', background: '#2563EB', color: '#FFF', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'background 0.15s', fontFamily: 'var(--font-dm-sans), sans-serif' }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = '#1D4ED8' }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = '#2563EB' }}
-        >
-          <PenSquare size={13} />
-          {t('compose')}
-        </button>
-      </div>
-    </div>
+            {/* Clear all — only shown when something is active */}
+            {hasFilter && (
+              <>
+                <div style={{ height: '1px', background: '#E8E8E2', margin: '2px 0' }} />
+                <button
+                  onClick={clearAll}
+                  style={{ display: 'flex', alignItems: 'center', width: '100%', padding: '9px 14px', textAlign: 'left', background: '#FFF', color: '#9CA3AF', fontSize: '12px', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif' }}
+                >
+                  {tc('remove')} filter
+                </button>
+              </>
+            )}
+          </div>
+        </>
+      )}
+    </>
   )
 }
