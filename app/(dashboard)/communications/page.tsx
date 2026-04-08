@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
+import { useDashboard } from '@/components/layout/DashboardContext'
 import { FilterBar } from '@/components/communications/FilterBar'
 import { ConversationList } from '@/components/communications/ConversationList'
 import { ThreadView } from '@/components/communications/ThreadView'
@@ -58,14 +59,13 @@ interface TeamMember {
 
 export default function CommunicationsPage() {
   const t = useTranslations('communications')
+  // DashboardContext already has user + business — no redundant DB calls needed
+  const { user: dashUser, business } = useDashboard()
   const supabase = createClient()
 
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [loading, setLoading] = useState(true)
   const [messagesLoading, setMessagesLoading] = useState(false)
-  const [businessName, setBusinessName] = useState('Your Business')
-  const [currentUserEmail, setCurrentUserEmail] = useState('')
-  const [currentUserId, setCurrentUserId] = useState('')
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -88,57 +88,41 @@ export default function CommunicationsPage() {
   const [composeOpen, setComposeOpen] = useState(false)
   const [syncing, setSyncing] = useState(false)
 
+  // User/business info comes from DashboardContext — no DB calls needed
+  const currentUserEmail = dashUser.email
+  const currentUserId = dashUser.id
+  const businessName = business.name
+  const businessId = dashUser.active_business_id ?? dashUser.business_id
+
   // ---------------------------------------------------------------------------
-  // Load business name + user info
+  // Load team members (single query — only data not in context)
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
-    async function loadMeta() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      setCurrentUserEmail(user.email ?? '')
-      setCurrentUserId(user.id)
-
-      const { data: userRow } = await supabase
+    async function loadTeamMembers() {
+      const { data: members } = await supabase
         .from('users')
-        .select('business_id, full_name')
-        .eq('id', user.id)
-        .single()
-
-      if (userRow?.business_id) {
-        const { data: biz } = await supabase
-          .from('businesses')
-          .select('name')
-          .eq('id', userRow.business_id)
-          .single()
-        if (biz?.name) setBusinessName(biz.name)
-
-        // Load team members with communications module access
-        const { data: members } = await supabase
-          .from('users')
-          .select('id, full_name, email, module_access')
-          .eq('business_id', userRow.business_id)
-          .eq('status', 'active')
-        if (members) {
-          setTeamMembers(
-            members
-              .filter((m) => {
-                // admins always have access; others need module_access.communications
-                const ma = m.module_access as Record<string, boolean> | null
-                return ma === null || ma?.communications !== false
-              })
-              .map((m) => ({
-                id: m.id,
-                fullName: m.full_name ?? m.email,
-                email: m.email,
-              }))
-          )
-        }
+        .select('id, full_name, email, module_access')
+        .eq('business_id', businessId)
+        .eq('status', 'active')
+      if (members) {
+        setTeamMembers(
+          members
+            .filter((m) => {
+              const ma = m.module_access as Record<string, boolean> | null
+              return ma === null || ma?.communications !== false
+            })
+            .map((m) => ({
+              id: m.id,
+              fullName: m.full_name ?? m.email,
+              email: m.email,
+            }))
+        )
       }
     }
-    loadMeta()
+    loadTeamMembers()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [businessId])
 
   // ---------------------------------------------------------------------------
   // Load conversations
@@ -149,7 +133,7 @@ export default function CommunicationsPage() {
     if (!res.ok) { setLoading(false); return }
     const { conversations: rows } = await res.json()
     const unique = Array.from(new Map((rows ?? []).map((r: { id: string }) => [r.id, r])).values())
-    // Preserve already-loaded messages so Realtime reloads don't wipe thread contents
+    // Preserve already-loaded messages so reloads don't wipe thread contents
     setConversations((prev) => {
       const existing = new Map(prev.map((c) => [c.id, c.messages]))
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -164,13 +148,15 @@ export default function CommunicationsPage() {
   }, [loadConversations])
 
   // ---------------------------------------------------------------------------
-  // Realtime
+  // Realtime — surgical updates only, no full list reloads
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
     const channel = supabase
       .channel('comms-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => loadConversations())
+      // New inbound message: update the conversation's status + timestamp in-place.
+      // We do NOT call loadConversations() here — that was causing a full API
+      // refetch on every single message insert, cascading into repeated re-renders.
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
         const msg = payload.new as { conversation_id: string; received_at: string; direction: string }
         const now = msg.received_at ?? new Date().toISOString()
@@ -185,7 +171,6 @@ export default function CommunicationsPage() {
                 }
               : c
           )
-          // Re-sort by lastMessageAt descending so the updated conversation rises to the top
           return [...updated].sort((a, b) => {
             const aTime = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0
             const bTime = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0
@@ -196,7 +181,9 @@ export default function CommunicationsPage() {
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [supabase, loadConversations])
+  // supabase is a stable singleton from createBrowserClient
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // ---------------------------------------------------------------------------
   // Load messages for selected conversation
@@ -219,7 +206,6 @@ export default function CommunicationsPage() {
 
   const filtered = useMemo(() => {
     return conversations.filter((c) => {
-      // Folder filter — 'archive' shows is_archived, others filter by folder value
       if (activeFolder === 'archive') {
         if (!c.isArchived) return false
       } else {
@@ -227,8 +213,6 @@ export default function CommunicationsPage() {
         if (activeFolder !== 'inbox' && c.folder !== activeFolder) return false
       }
       if (activeChannel !== 'all' && c.channel !== activeChannel) return false
-      // Status filter — the API computes effective status from last message direction,
-      // so c.status === 'replied' is always correct without needing messages loaded.
       if (activeStatus !== 'all' && c.status !== activeStatus) return false
       if (activeLabel && !c.labels?.includes(activeLabel)) return false
       if (searchQuery) {
@@ -286,31 +270,33 @@ export default function CommunicationsPage() {
   }
 
   async function handleGmailConnected(_email: string) {
-    // Trigger initial sync after Gmail is connected
     try {
       await fetch('/api/gmail/initial-sync', { method: 'POST' })
       await loadConversations()
-    } catch {
-      // non-fatal
-    }
+    } catch { /* non-fatal */ }
   }
 
   async function handleSelect(id: string) {
     setSelectedId(id)
     setMessagesLoading(true)
-    await supabase.from('conversations').update({ status: 'read' }).eq('id', id)
+    // Optimistic read status update
     setConversations((prev) =>
       prev.map((c) => c.id === id && c.status === 'unread' ? { ...c, status: 'read' } : c)
     )
-    await loadMessages(id)
-    // Background: fetch full Gmail thread history — only once per session per conversation
+    // Fire DB update + message load in parallel
+    await Promise.all([
+      supabase.from('conversations').update({ status: 'read' }).eq('id', id),
+      loadMessages(id),
+    ])
+    // Background: sync full Gmail thread once per session — do NOT await or
+    // reload messages afterward; realtime will surface any new messages.
     if (!syncedConvIds.current.has(id)) {
       syncedConvIds.current.add(id)
       fetch('/api/gmail/sync-thread', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ conversationId: id }),
-      }).then(() => loadMessages(id)).catch(() => { /* non-fatal */ })
+      }).catch(() => { /* non-fatal */ })
     }
   }
 
@@ -339,7 +325,6 @@ export default function CommunicationsPage() {
   async function handleArchive(id: string) {
     await supabase.from('conversations').update({ is_archived: true }).eq('id', id)
     setConversations((prev) => prev.map((c) => c.id === id ? { ...c, isArchived: true } : c))
-    // Deselect if currently open
     if (selectedId === id) setSelectedId(null)
   }
 

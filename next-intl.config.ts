@@ -1,5 +1,5 @@
 import { getRequestConfig } from 'next-intl/server'
-import { createClient } from '@/lib/supabase/server'
+import { getServerUser, getServerUserProfile } from '@/lib/supabase/request-cache'
 
 const SUPPORTED_LOCALES = ['en', 'fr', 'de', 'es', 'it', 'nl'] as const
 type SupportedLocale = typeof SUPPORTED_LOCALES[number]
@@ -12,29 +12,30 @@ export default getRequestConfig(async () => {
   let locale: SupportedLocale = 'en'
 
   try {
-    // Read locale from businesses table (source of truth).
-    // Dashboard layout already fetches business, but next-intl config runs
-    // before any layout, so we do a lightweight single-column fetch here.
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    // getServerUser/getServerUserProfile are React.cache()-wrapped — if the
+    // dashboard layout has already called them in the same request, these
+    // return the cached result with zero extra network calls.
+    const { user } = await getServerUser()
 
     if (user) {
-      // Get business_id from users, then locale from businesses
-      const { data: userRow } = await supabase
-        .from('users')
-        .select('business_id')
-        .eq('id', user.id)
-        .single()
+      const userProfile = await getServerUserProfile()
 
-      if (userRow?.business_id) {
-        const { data: biz } = await supabase
-          .from('businesses')
-          .select('locale')
-          .eq('id', userRow.business_id)
-          .single()
+      if (userProfile) {
+        const bizId = userProfile.active_business_id ?? userProfile.business_id
 
-        if (biz?.locale && isSupported(biz.locale)) {
-          locale = biz.locale
+        if (bizId) {
+          // Single targeted query — only locale column
+          const { createClient } = await import('@/lib/supabase/server')
+          const supabase = await createClient()
+          const { data: biz } = await supabase
+            .from('businesses')
+            .select('locale')
+            .eq('id', bizId)
+            .single()
+
+          if (biz?.locale && isSupported(biz.locale)) {
+            locale = biz.locale
+          }
         }
       }
     }

@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getServerUser, getServerUserProfile } from '@/lib/supabase/request-cache'
 import type { User, Business, UserBusiness } from '@/types/database'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Topbar } from '@/components/layout/Topbar'
@@ -25,30 +26,24 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const supabase = await createClient()
-
-  // Auth check
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser()
+  // Auth check — React.cache() means this is shared with next-intl.config.ts
+  // in the same request, so no duplicate network call.
+  const { user: authUser } = await getServerUser()
 
   if (!authUser) {
     redirect('/login')
   }
 
-  // Fetch profile
-  const { data: userProfile } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', authUser.id)
-    .single()
+  // User profile — also cached; next-intl.config.ts already fetched this
+  const userProfile = await getServerUserProfile()
 
   if (!userProfile || !userProfile.onboarding_complete) {
     redirect('/onboarding')
   }
 
-  // Fetch active business + all memberships in parallel
+  // Fetch active business + all memberships in parallel (one round-trip)
   const activeBizId = userProfile.active_business_id ?? userProfile.business_id
+  const supabase = await createClient()
   const [{ data: business }, { data: membershipRows }] = await Promise.all([
     supabase.from('businesses').select('*').eq('id', activeBizId).single(),
     supabase.from('user_businesses').select('*, business:businesses(*)').eq('user_id', userProfile.id),
