@@ -9,6 +9,26 @@ import IntegrationsTab from '@/components/settings/IntegrationsTab'
 import NotificationsTab from '@/components/settings/NotificationsTab'
 import AccountTab from '@/components/settings/AccountTab'
 import { createClient } from '@/lib/supabase/client'
+import { Skeleton } from '@/components/ui/skeleton'
+
+function SettingsSkeleton() {
+  return (
+    <div style={{ padding: '32px', maxWidth: '900px' }}>
+      <Skeleton style={{ width: '120px', height: '22px', marginBottom: '6px', borderRadius: '6px' }} />
+      <Skeleton style={{ width: '280px', height: '13px', marginBottom: '28px', borderRadius: '4px' }} />
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '28px' }}>
+        {[80, 90, 100, 72].map((w, i) => (
+          <Skeleton key={i} style={{ width: w, height: '34px', borderRadius: '6px' }} />
+        ))}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '560px' }}>
+        {[52, 52, 52, 80, 120].map((h, i) => (
+          <Skeleton key={i} style={{ width: '100%', height: h, borderRadius: '8px' }} />
+        ))}
+      </div>
+    </div>
+  )
+}
 
 type TabValue = 'business' | 'integrations' | 'notifications' | 'account'
 
@@ -63,7 +83,7 @@ function SettingsContent() {
 
 export default function SettingsPage() {
   return (
-    <Suspense fallback={<div style={{ padding: '32px', color: 'var(--text-muted)' }}>Loading…</div>}>
+    <Suspense fallback={<SettingsSkeleton />}>
       <SettingsContent />
     </Suspense>
   )

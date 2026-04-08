@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { useDashboard } from '@/components/layout/DashboardContext'
+import { Skeleton } from '@/components/ui/skeleton'
 
 interface Stats {
   unreadConversations: number
@@ -122,6 +123,34 @@ export function StatCards() {
       accentColor: 'var(--red)',
     },
   ]
+
+  if (!stats) {
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+        {[
+          'var(--omnexia-accent)',
+          'var(--amber)',
+          'var(--green)',
+          'var(--red)',
+        ].map((accentColor, i) => (
+          <div
+            key={i}
+            style={{
+              background: 'var(--bg-surface)',
+              border: '1px solid var(--border-default)',
+              borderRadius: '12px',
+              padding: '20px',
+              borderLeft: `3px solid ${accentColor}`,
+            }}
+          >
+            <Skeleton style={{ width: '70%', height: '11px', marginBottom: '14px', borderRadius: '4px' }} />
+            <Skeleton style={{ width: '48px', height: '28px', marginBottom: '10px', borderRadius: '4px' }} />
+            <Skeleton style={{ width: '55%', height: '12px', borderRadius: '4px' }} />
+          </div>
+        ))}
+      </div>
+    )
+  }
 
   return (
     <div

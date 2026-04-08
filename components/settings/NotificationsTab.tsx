@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { Switch } from '@/components/ui/switch'
 import { toast } from 'sonner'
+import { Skeleton } from '@/components/ui/skeleton'
 
 type NotifPrefs = {
   digest_enabled: boolean
@@ -64,7 +65,15 @@ export default function NotificationsTab() {
     toast.success('Preferences saved')
   }
 
-  if (loading) return <div style={{ color: 'var(--text-muted)', fontSize: '13px', padding: '20px 0' }}>{tc('loading')}</div>
+  if (loading) return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '560px' }}>
+      <Skeleton style={{ width: '100%', height: 148, borderRadius: '12px' }} />
+      <Skeleton style={{ width: '100%', height: 104, borderRadius: '12px' }} />
+      <Skeleton style={{ width: '100%', height: 64, borderRadius: '12px' }} />
+      <Skeleton style={{ width: '100%', height: 64, borderRadius: '12px' }} />
+      <Skeleton style={{ width: '120px', height: '36px', borderRadius: '8px' }} />
+    </div>
+  )
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '560px' }}>

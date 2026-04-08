@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { EU_VAT_RATES } from '@/lib/utils/vat'
 import { toast } from 'sonner'
+import { Skeleton } from '@/components/ui/skeleton'
 
 const COUNTRIES = [
   { code: 'FR', label: 'France', flag: '🇫🇷' },
@@ -117,7 +118,15 @@ export default function BusinessTab() {
     toast.success('Changes saved')
   }
 
-  if (loading) return <div style={loadingStyle}>{tc('loading')}</div>
+  if (loading) return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '560px' }}>
+      {/* Business name, country, VAT, currency, date format, logo, AI context */}
+      {[52, 52, 52, 52, 52, 80, 120].map((h, i) => (
+        <Skeleton key={i} style={{ width: '100%', height: h, borderRadius: '8px' }} />
+      ))}
+      <Skeleton style={{ width: '120px', height: '36px', borderRadius: '8px' }} />
+    </div>
+  )
 
   return (
     <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '560px' }}>

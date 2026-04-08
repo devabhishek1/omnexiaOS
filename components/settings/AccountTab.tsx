@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { Skeleton } from '@/components/ui/skeleton'
 
 const LANGUAGES = [
   { code: 'en', label: 'English', flag: '🇬🇧' },
@@ -21,6 +22,7 @@ export default function AccountTab() {
   const supabase = createClient()
   const router = useRouter()
 
+  const [loaded, setLoaded] = useState(false)
   const [locale, setLocale] = useState('en')
   const [userId, setUserId] = useState<string | null>(null)
   const [businessId, setBusinessId] = useState<string | null>(null)
@@ -44,6 +46,7 @@ export default function AccountTab() {
         setLocale(data.locale ?? 'en')
         setBusinessId(data.business_id)
       }
+      setLoaded(true)
     }
     load()
   }, [])
@@ -90,6 +93,21 @@ export default function AccountTab() {
     if (deleteConfirm !== 'DELETE') return
     toast.info(t('accountDeletionRequested'))
     setShowDeleteModal(false)
+  }
+
+  if (!loaded) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '28px', maxWidth: '560px' }}>
+        {/* Language section */}
+        <Skeleton style={{ width: '100%', height: 88, borderRadius: '12px' }} />
+        {/* Password section */}
+        <Skeleton style={{ width: '100%', height: 172, borderRadius: '12px' }} />
+        {/* Billing section */}
+        <Skeleton style={{ width: '100%', height: 88, borderRadius: '12px' }} />
+        {/* Data & Privacy section */}
+        <Skeleton style={{ width: '100%', height: 120, borderRadius: '12px' }} />
+      </div>
+    )
   }
 
   return (
