@@ -10,6 +10,15 @@ import ConnectGmailButton from '@/components/gmail/ConnectGmailButton'
 // Helpers
 // ---------------------------------------------------------------------------
 
+const LABEL_KEY_MAP: Record<string, string> = {
+  Priority: 'labelPriority',
+  Urgent: 'labelUrgent',
+  Invoice: 'labelInvoice',
+  Support: 'labelSupport',
+  Legal: 'labelLegal',
+  Mine: 'labelMine',
+}
+
 function getInitials(name: string) {
   return name
     .replace(/^@/, '')
@@ -93,6 +102,7 @@ function ConversationItem({
   selected: boolean
   onSelect: () => void
 }) {
+  const t = useTranslations('communications')
   const isUnread = conv.status === 'unread'
   const [hovered, setHovered] = React.useState(false)
 
@@ -193,7 +203,7 @@ function ConversationItem({
                   border: '1px solid var(--border-default)',
                 }}
               >
-                {label}
+                {LABEL_KEY_MAP[label] ? t(LABEL_KEY_MAP[label] as Parameters<typeof t>[0]) : label}
               </span>
             ))}
           </div>

@@ -493,6 +493,14 @@ function AIReplyPanel({
 
 const LABEL_KEYS = ['labelPriority', 'labelUrgent', 'labelInvoice', 'labelSupport', 'labelLegal', 'labelMine'] as const
 const LABEL_VALUES = ['Priority', 'Urgent', 'Invoice', 'Support', 'Legal', 'Mine'] as const
+const LABEL_KEY_MAP: Record<string, string> = {
+  Priority: 'labelPriority',
+  Urgent: 'labelUrgent',
+  Invoice: 'labelInvoice',
+  Support: 'labelSupport',
+  Legal: 'labelLegal',
+  Mine: 'labelMine',
+}
 
 interface TeamMember { id: string; fullName: string; email: string }
 
@@ -661,7 +669,7 @@ export function ThreadView({ conversation, showAIPanel, priorityOnly, businessNa
               style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 10px', border: '1px solid #E8E8E2', borderRadius: '6px', background: conversation.labels?.length ? '#EEF3FE' : '#F9F9F6', fontSize: '12px', color: conversation.labels?.length ? '#2563EB' : '#6B6B6B', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif' }}
             >
               <Tag size={13} />
-              {conversation.labels?.length ? conversation.labels.join(', ') : t('label')}
+              {conversation.labels?.length ? conversation.labels.map((l) => LABEL_KEY_MAP[l] ? t(LABEL_KEY_MAP[l] as Parameters<typeof t>[0]) : l).join(', ') : t('label')}
             </button>
             {showLabelDropdown && (
               <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '4px', background: '#FFF', border: '1px solid #E8E8E2', borderRadius: '10px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 50, minWidth: '160px', overflow: 'hidden' }}>
@@ -712,9 +720,9 @@ export function ThreadView({ conversation, showAIPanel, priorityOnly, businessNa
                 {showFolderMenu && (
                   <div style={{ background: '#F9F9F6', borderTop: '1px solid #E8E8E2', borderBottom: '1px solid #E8E8E2' }}>
                     {[
-                      { value: 'inbox', label: 'Inbox' },
-                      { value: 'later', label: 'Later' },
-                      { value: 'follow-up', label: 'Follow-up' },
+                      { value: 'inbox', label: t('folderInbox') },
+                      { value: 'later', label: t('folderLater') },
+                      { value: 'follow-up', label: t('folderFollowUp') },
                     ].map((f) => (
                       <button key={f.value} onClick={() => { onMoveToFolder(conversation.id, f.value); setShowMoreMenu(false); setShowFolderMenu(false) }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '8px 14px 8px 32px', textAlign: 'left', background: conversation.folder === f.value ? '#EEF3FE' : 'transparent', color: conversation.folder === f.value ? '#2563EB' : '#374151', fontSize: '12px', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif', fontWeight: conversation.folder === f.value ? 600 : 400 }}>
                         {f.label}
@@ -801,6 +809,7 @@ function ReplyComposerControlled({
   composerRef: React.RefObject<HTMLTextAreaElement | null>
   onSend: (text: string, files?: File[]) => void
 }) {
+  const t = useTranslations('communications')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [attachments, setAttachments] = useState<File[]>([])
@@ -838,7 +847,7 @@ function ReplyComposerControlled({
   return (
     <div style={{ flexShrink: 0, borderTop: '1px solid #E8E8E2', background: '#FFFFFF', padding: '12px 16px' }}>
       <p style={{ fontSize: '11px', color: '#9CA3AF', margin: '0 0 8px 0', fontWeight: 500 }}>
-        Replying as <strong style={{ color: '#6B6B6B' }}>{businessName}</strong> · via Gmail
+        {t('replyingAsViaGmail', { name: businessName })}
       </p>
 
       <textarea
@@ -846,7 +855,7 @@ function ReplyComposerControlled({
         id="reply-composer"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Write a reply…"
+        placeholder={t('typeReply')}
         rows={3}
         style={{
           width: '100%', resize: 'none',
@@ -878,14 +887,14 @@ function ReplyComposerControlled({
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '11px', color: '#BBBBBB' }}>⌘ + Enter to send</span>
+          <span style={{ fontSize: '11px', color: '#BBBBBB' }}>{t('cmdEnterToSend')}</span>
           <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }} onChange={handleFileChange} />
           <button
             onClick={() => fileInputRef.current?.click()}
             title="Attach files"
             style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: '1px solid #E8E8E2', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', color: '#6B6B6B', fontSize: '12px', fontFamily: 'var(--font-dm-sans), sans-serif' }}
           >
-            <Paperclip size={12} /> Attach
+            <Paperclip size={12} /> {t('attach')}
           </button>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
@@ -893,14 +902,14 @@ function ReplyComposerControlled({
             onClick={() => { onChange(''); setAttachments([]) }}
             style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 14px', background: 'transparent', color: '#6B6B6B', border: '1px solid #E8E8E2', borderRadius: '7px', fontSize: '13px', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-dm-sans), sans-serif' }}
           >
-            <Trash2 size={12} /> Discard
+            <Trash2 size={12} /> {t('discard')}
           </button>
           <button
             onClick={handleSend}
             disabled={!value.trim() && attachments.length === 0}
             style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 16px', background: (value.trim() || attachments.length > 0) ? '#2563EB' : '#E8E8E2', color: (value.trim() || attachments.length > 0) ? '#FFFFFF' : '#9CA3AF', border: 'none', borderRadius: '7px', fontSize: '13px', fontWeight: 600, cursor: (value.trim() || attachments.length > 0) ? 'pointer' : 'default', fontFamily: 'var(--font-dm-sans), sans-serif', transition: 'background 0.15s' }}
           >
-            <Send size={13} /> Send via Gmail
+            <Send size={13} /> {t('sendViaGmail')}
           </button>
         </div>
       </div>
