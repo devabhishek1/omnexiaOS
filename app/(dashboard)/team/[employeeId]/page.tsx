@@ -10,7 +10,7 @@ import { actionLabel } from '@/lib/utils/activityLog'
 
 const MODULES = ['communications', 'finance', 'planning', 'team'] as const
 
-interface Employee { id: string; full_name: string; email: string; phone: string | null; role_title: string | null; user_id: string | null }
+interface Employee { id: string; full_name: string; email: string; phone: string | null; role_title: string | null; user_id: string | null; status: string }
 interface User { id: string; role: string; status: string; module_access: Record<string, boolean> }
 interface Shift { id: string; date: string; start_time: string; end_time: string; notes: string | null }
 interface ActivityEntry { id: string; action: string; target_type: string | null; created_at: string }
@@ -22,6 +22,7 @@ const roleColors: Record<string, { bg: string; color: string }> = {
   accountant: { bg: '#FEF3C7', color: '#B45309' },
 }
 const statusColors: Record<string, { bg: string; color: string }> = {
+  invited: { bg: '#DBEAFE', color: '#1D4ED8' },
   active: { bg: '#DCFCE7', color: '#15803D' },
   on_leave: { bg: '#FEF3C7', color: '#B45309' },
   deactivated: { bg: '#F3F4F6', color: '#6B7280' },
@@ -100,8 +101,8 @@ export default function EmployeeProfilePage() {
     )
   }
 
-  const role = user?.role ?? 'employee'
-  const status = user?.status ?? 'active'
+  const role = user?.role ?? (employee.role_title ?? 'employee')
+  const status = employee.status ?? 'active'
   const rc = roleColors[role] ?? roleColors.employee
   const sc = statusColors[status] ?? statusColors.active
   const DAYS = [tp('monday'), tp('tuesday'), tp('wednesday'), tp('thursday'), tp('friday'), tp('saturday'), tp('sunday')]

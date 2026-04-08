@@ -10,7 +10,7 @@ import MonthlyCalendar from '@/components/planning/MonthlyCalendar'
 import AvailabilityOverview from '@/components/planning/AvailabilityOverview'
 import TimeOffPanel from '@/components/planning/TimeOffPanel'
 
-interface Employee { id: string; full_name: string; user_id: string | null }
+interface Employee { id: string; full_name: string; user_id: string | null; status: string }
 interface Shift { id: string; employee_id: string; date: string; start_time: string; end_time: string; notes: string | null }
 interface Holiday { country_code: string; date: string; name: string }
 interface TimeOffRequest { id: string; employee_id: string; start_date: string; end_date: string; reason: string | null; status: string; created_at: string }
@@ -51,7 +51,7 @@ export default function PlanningPage() {
     const weekEnd = endOfWeek(week, { weekStartsOn: 1 })
 
     const [empRes, shiftRes, holidayRes, toRes] = await Promise.all([
-      supabase.from('employees').select('id, full_name, user_id').eq('business_id', userRow.business_id),
+      supabase.from('employees').select('id, full_name, user_id, status').eq('business_id', userRow.business_id),
       supabase.from('shifts').select('*').eq('business_id', userRow.business_id)
         .gte('date', format(weekStart, 'yyyy-MM-dd'))
         .lte('date', format(weekEnd, 'yyyy-MM-dd')),
@@ -145,7 +145,7 @@ export default function PlanningPage() {
 
       {view === 'weekly' ? (
         <WeeklyGrid
-          employees={employees}
+          employees={employees.filter(e => e.status !== 'invited')}
           shifts={shifts}
           holidays={holidays}
           timeOff={timeOff}
@@ -166,7 +166,7 @@ export default function PlanningPage() {
       )}
 
       <AvailabilityOverview
-        employees={employees}
+        employees={employees.filter(e => e.status !== 'invited')}
         shifts={shifts}
         timeOff={timeOff}
         week={week}
